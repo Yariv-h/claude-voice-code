@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  ::-webkit-scrollbar{width:9px;height:9px;}
+  ::-webkit-scrollbar-thumb{background:rgba(128,128,128,.28);border-radius:9px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  @keyframes turnIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}
+  @keyframes dotpulse{0%,100%{opacity:.2;transform:translateY(0);}50%{opacity:1;transform:translateY(-4px);}}
+  @keyframes softpulse{0%,100%{opacity:.55;}50%{opacity:1;}}
+  @keyframes gridDrift{from{background-position:0 0,0 0;}to{background-position:0 46px,46px 0;}}
+  @keyframes sweepY{0%{top:-3%;opacity:0;}14%{opacity:.6;}86%{opacity:.6;}100%{top:100%;opacity:0;}}
+  @keyframes brk{0%,100%{opacity:.4;}50%{opacity:.75;}}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @keyframes scanBar{0%{top:-18%;}100%{top:118%;}}
+</style>
+</helmet>
+<div style="min-height:100%; background:{{ c.bg }}; color:{{ c.text }}; font-family:'Space Grotesk',system-ui,sans-serif; position:relative; overflow-x:hidden;">
+
+  <div style="position:fixed; inset:0; pointer-events:none; z-index:0; background: radial-gradient(58% 46% at 50% 26%, {{ c.glow }}, transparent 72%);"></div>
+
+  <sc-if value="{{ showNova }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; inset:0; pointer-events:none; z-index:0; background-image:linear-gradient({{ c.grid }} 1px, transparent 1px), linear-gradient(90deg, {{ c.grid }} 1px, transparent 1px); background-size:46px 46px; -webkit-mask-image:radial-gradient(118% 92% at 50% 32%, #000 28%, transparent 76%); mask-image:radial-gradient(118% 92% at 50% 32%, #000 28%, transparent 76%); animation:gridDrift 9s linear infinite;"></div>
+  </sc-if>
+
+  <canvas id="vc-rain" style="position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none;"></canvas>
+
+  <sc-if value="{{ showSentinel }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; inset:0; z-index:0; pointer-events:none; background:repeating-linear-gradient(0deg, rgba(255,70,90,0.05) 0px, rgba(255,70,90,0.05) 1px, transparent 1px, transparent 3px); -webkit-mask-image:radial-gradient(125% 105% at 50% 35%, #000 28%, transparent 82%); mask-image:radial-gradient(125% 105% at 50% 35%, #000 28%, transparent 82%);"></div>
+    <div style="position:fixed; left:0; right:0; top:0; height:150px; z-index:0; pointer-events:none; background:linear-gradient(transparent, rgba(255,59,92,0.07), transparent); animation:scanBar 4.5s linear infinite;"></div>
+  </sc-if>
+
+  <header style="position:relative; z-index:2; display:flex; align-items:center; justify-content:space-between; padding:18px 26px; max-width:980px; margin:0 auto;">
+    <div style="display:flex; align-items:center; gap:11px;">
+      <div style="width:9px; height:9px; border-radius:50%; background:#3ad07f; box-shadow:0 0 10px #3ad07f; animation:softpulse 2.4s ease-in-out infinite;"></div>
+      <span style="font-weight:600; font-size:15px; letter-spacing:-.01em;">Claude Code</span>
+      <span style="font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:{{ c.dim }}; padding:3px 8px; border:1px solid {{ c.border }}; border-radius:6px;">voice</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px; font-family:'JetBrains Mono',monospace; font-size:11px; color:{{ c.dim }};">
+      <span style="opacity:.7;">claude-sonnet</span>
+      <span style="width:4px;height:4px;border-radius:50%;background:{{ c.dim }};opacity:.5;"></span>
+      <span>connected</span>
+    </div>
+  </header>
+
+  <main style="position:relative; z-index:2; max-width:760px; margin:0 auto; padding:8px 26px 160px;">
+
+    <section style="height:clamp(230px,33vh,330px); position:relative; margin:6px 0 4px;">
+      <canvas ref="{{ canvasRef }}" style="width:100%; height:100%; display:block;"></canvas>
+      <sc-if value="{{ showNova }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute; inset:7% 5%; pointer-events:none; overflow:hidden;">
+          <div style="position:absolute; top:0; left:0; width:26px; height:26px; border-top:1.5px solid {{ c.accent }}; border-left:1.5px solid {{ c.accent }}; animation:brk 3s ease-in-out infinite;"></div>
+          <div style="position:absolute; top:0; right:0; width:26px; height:26px; border-top:1.5px solid {{ c.accent }}; border-right:1.5px solid {{ c.accent }}; animation:brk 3s ease-in-out .4s infinite;"></div>
+          <div style="position:absolute; bottom:0; left:0; width:26px; height:26px; border-bottom:1.5px solid {{ c.accent }}; border-left:1.5px solid {{ c.accent }}; animation:brk 3s ease-in-out .8s infinite;"></div>
+          <div style="position:absolute; bottom:0; right:0; width:26px; height:26px; border-bottom:1.5px solid {{ c.accent }}; border-right:1.5px solid {{ c.accent }}; animation:brk 3s ease-in-out 1.2s infinite;"></div>
+          <div style="position:absolute; left:0; right:0; top:0; height:2px; background:linear-gradient(90deg, transparent, {{ c.accent }}, transparent); animation:sweepY 3.4s ease-in-out infinite;"></div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ showSentinel }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none;">
+          <div style="position:absolute; top:8%; bottom:8%; width:1px; background:linear-gradient(transparent, rgba(255,59,92,0.28), transparent);"></div>
+          <div style="position:absolute; left:6%; right:6%; height:1px; background:linear-gradient(90deg, transparent, rgba(255,59,92,0.28), transparent);"></div>
+          <div style="width:250px; height:250px; max-width:60%; max-height:80%; border:1px dashed rgba(255,59,92,0.55); border-radius:50%; animation:spin 11s linear infinite;"></div>
+          <div style="position:absolute; width:292px; height:292px; max-width:72%; max-height:92%; border:1px solid rgba(255,59,92,0.15); border-radius:50%;"></div>
+        </div>
+        <div style="position:absolute; top:8px; left:10px; font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.16em; color:{{ c.accent }}; display:flex; align-items:center; gap:7px;">
+          <span style="width:6px; height:6px; border-radius:50%; background:{{ c.accent }}; box-shadow:0 0 8px {{ c.accent }}; animation:softpulse 1.3s ease-in-out infinite;"></span>TRACKING &middot; LOCK
+        </div>
+      </sc-if>
+    </section>
+
+    <div style="display:flex; flex-direction:column; align-items:center; gap:18px; margin-top:6px;">
+      <div style="text-align:center;">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:13px; letter-spacing:.22em; text-transform:uppercase; color:{{ c.accent }}; font-weight:500;">{{ statusLabel }}</div>
+        <div style="font-size:13px; color:{{ c.dim }}; margin-top:6px;">{{ statusCaption }}</div>
+      </div>
+
+      <button onClick="{{ micClick }}" style="width:68px; height:68px; border-radius:50%; border:1px solid {{ micBorder }}; background:{{ micBg }}; color:{{ micColor }}; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:{{ micShadow }}; transition:box-shadow .3s ease, transform .3s ease;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="3" width="6" height="11" rx="3"></rect>
+          <path d="M6 11a6 6 0 0 0 12 0"></path>
+          <line x1="12" y1="17" x2="12" y2="21"></line>
+        </svg>
+      </button>
+    </div>
+
+    <div style="margin-top:34px; display:flex; flex-direction:column; gap:18px;">
+
+      <sc-if value="{{ showHint }}" hint-placeholder-val="{{ false }}">
+        <div style="text-align:center; padding:22px 18px; border:1px dashed {{ c.border }}; border-radius:16px;">
+          <div style="font-size:13px; color:{{ c.dim }}; margin-bottom:8px;">Try saying</div>
+          <div style="font-size:16px; font-weight:500;">&ldquo;Add a dark mode toggle to the settings page&rdquo;</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showUser }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:turnIn .4s ease both;">
+          <div style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:{{ c.dim }}; margin-bottom:8px;">You</div>
+          <div style="font-size:18px; line-height:1.5; font-weight:500; letter-spacing:-.01em;">Add a dark mode toggle to the settings page and save the choice between sessions.</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showThinking }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; align-items:center; gap:10px; animation:turnIn .4s ease both;">
+          <div style="display:flex; gap:5px;">
+            <span style="width:7px;height:7px;border-radius:50%;background:{{ c.accent }};animation:dotpulse 1.1s ease-in-out infinite;"></span>
+            <span style="width:7px;height:7px;border-radius:50%;background:{{ c.accent }};animation:dotpulse 1.1s ease-in-out .18s infinite;"></span>
+            <span style="width:7px;height:7px;border-radius:50%;background:{{ c.accent }};animation:dotpulse 1.1s ease-in-out .36s infinite;"></span>
+          </div>
+          <span style="font-size:13px; color:{{ c.dim }};">Planning the change&hellip;</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showReply }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:turnIn .4s ease both; display:flex; flex-direction:column; gap:16px;">
+          <div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <div style="width:18px;height:18px;border-radius:5px;background:{{ c.accent }};display:flex;align-items:center;justify-content:center;">
+                <div style="width:7px;height:7px;border-radius:50%;background:{{ c.ink }};"></div>
+              </div>
+              <span style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:{{ c.dim }};">Claude</span>
+            </div>
+            <div style="font-size:16px; line-height:1.6; color:{{ c.text }};">On it. I&rsquo;ll add a switch to the Settings panel, route it through a theme provider, and persist the choice to <span style="font-family:'JetBrains Mono',monospace; font-size:14px; color:{{ c.accent }};">localStorage</span> so it sticks across reloads.</div>
+          </div>
+
+          <div style="border:1px solid {{ c.border }}; border-radius:14px; overflow:hidden; background:{{ c.codeBg }};">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:11px 14px; border-bottom:1px solid {{ c.border }};">
+              <span style="font-family:'JetBrains Mono',monospace; font-size:12px; color:{{ c.dim }};">src/settings/SettingsPanel.tsx</span>
+              <span style="font-family:'JetBrains Mono',monospace; font-size:11px; color:{{ c.addText }};">+5 &minus;0</span>
+            </div>
+            <div style="padding:10px 0; font-family:'JetBrains Mono',monospace; font-size:12.5px; line-height:1.85; overflow-x:auto;">
+              <sc-for list="{{ diffRows }}" as="row" hint-placeholder-count="9">
+                <div style="display:flex; background:{{ row.bg }}; padding:0 14px;">
+                  <span style="width:14px; color:{{ row.color }}; user-select:none; flex:none;">{{ row.sign }}</span>
+                  <span style="color:{{ row.color }}; white-space:pre;">{{ row.s }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            <sc-for list="{{ fileRows }}" as="f" hint-placeholder-count="3">
+              <div style="display:flex; align-items:center; gap:9px; padding:8px 12px; border:1px solid {{ c.border }}; border-radius:10px; background:{{ c.surface }};">
+                <span style="font-family:'JetBrains Mono',monospace; font-size:12px; color:{{ c.text }};">{{ f.path }}</span>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; padding:2px 7px; border-radius:5px; color:{{ f.tagColor }}; background:{{ f.tagBg }};">{{ f.label }}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:12px; padding:11px 14px; border:1px solid {{ c.border }}; border-radius:11px; background:{{ c.codeBg }}; font-family:'JetBrains Mono',monospace; font-size:12.5px;">
+            <span style="color:{{ c.accent }};">$</span>
+            <span style="color:{{ c.text }};">npm run typecheck</span>
+            <span style="margin-left:auto; color:{{ c.addText }};">&#10003; 0 errors &middot; 1.4s</span>
+          </div>
+        </div>
+      </sc-if>
+
+    </div>
+  </main>
+
+  <sc-if value="{{ showDock }}" hint-placeholder-val="{{ true }}">
+    <div style="position:fixed; left:50%; bottom:16px; transform:translateX(-50%); z-index:10; display:flex; flex-wrap:wrap; justify-content:center; align-items:flex-end; gap:20px; padding:12px 18px; border-radius:18px; background:{{ c.dockBg }}; border:1px solid {{ c.border }}; backdrop-filter:blur(22px); -webkit-backdrop-filter:blur(22px); box-shadow:0 12px 40px rgba(0,0,0,.28); max-width:94vw;">
+
+      <div style="display:flex; flex-direction:column; align-items:center; gap:7px;">
+        <span style="font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:{{ c.dim }};">Theme</span>
+        <div style="display:flex; gap:7px;">
+          <sc-for list="{{ themeBtns }}" as="t" hint-placeholder-count="4">
+            <button onClick="{{ t.onClick }}" title="{{ t.label }}" style="width:24px; height:24px; border-radius:50%; cursor:pointer; background:{{ t.swatchBg }}; border:2px solid {{ t.ring }}; outline:1px solid {{ c.border }}; outline-offset:1px; transition:transform .15s ease; padding:0;"></button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="width:1px; align-self:stretch; background:{{ c.border }}; margin:2px 0;"></div>
+
+      <div style="display:flex; flex-direction:column; align-items:center; gap:7px;">
+        <span style="font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:{{ c.dim }};">Visual</span>
+        <div style="display:flex; gap:4px;">
+          <sc-for list="{{ vizBtns }}" as="v" hint-placeholder-count="4">
+            <button onClick="{{ v.onClick }}" style="font-family:'Space Grotesk',sans-serif; font-size:12px; font-weight:500; padding:6px 11px; border-radius:9px; cursor:pointer; border:1px solid {{ v.border }}; color:{{ v.fg }}; background:{{ v.bg }}; transition:transform .12s ease;">{{ v.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="width:1px; align-self:stretch; background:{{ c.border }}; margin:2px 0;"></div>
+
+      <div style="display:flex; flex-direction:column; align-items:center; gap:7px;">
+        <span style="font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:.18em; text-transform:uppercase; color:{{ c.dim }};">State</span>
+        <div style="display:flex; gap:4px;">
+          <sc-for list="{{ stateBtns }}" as="s" hint-placeholder-count="4">
+            <button onClick="{{ s.onClick }}" style="font-family:'Space Grotesk',sans-serif; font-size:12px; font-weight:500; padding:6px 11px; border-radius:9px; cursor:pointer; border:1px solid {{ s.border }}; color:{{ s.fg }}; background:{{ s.bg }}; transition:transform .12s ease;">{{ s.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1180, &quot;height&quot;: 760 },
+  &quot;theme&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;nova&quot;,&quot;matrix&quot;,&quot;sentinel&quot;,&quot;carbon&quot;,&quot;paper&quot;,&quot;aurora&quot;,&quot;ember&quot;], &quot;default&quot;: &quot;nova&quot;, &quot;tsType&quot;: &quot;string&quot; },
+  &quot;viz&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;orb&quot;,&quot;wave&quot;,&quot;blob&quot;,&quot;field&quot;], &quot;default&quot;: &quot;orb&quot;, &quot;tsType&quot;: &quot;string&quot; },
+  &quot;voice&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;idle&quot;,&quot;listening&quot;,&quot;thinking&quot;,&quot;speaking&quot;], &quot;default&quot;: &quot;idle&quot;, &quot;tsType&quot;: &quot;string&quot; },
+  &quot;showDock&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot; }
+}">
+class Component extends DCLogic {
+  state = { theme: 'nova', viz: 'orb', voice: 'idle' };
+
+  themes = {
+    carbon: { label:'Carbon', bg:'#08090a', text:'#e9eaec', dim:'#7e8288', border:'rgba(255,255,255,0.10)', surface:'rgba(255,255,255,0.04)', accent:'#56c7e8', accent2:'#7b9cf5', glow:'rgba(86,199,232,0.11)', dark:true, ink:'#04141a' },
+    paper:  { label:'Paper', bg:'#f3f1ec', text:'#1b1a17', dim:'#6c6a64', border:'rgba(0,0,0,0.11)', surface:'#ffffff', accent:'#c2512f', accent2:'#d98a3d', glow:'rgba(194,81,47,0.10)', dark:false, ink:'#ffffff' },
+    aurora: { label:'Aurora', bg:'#080614', text:'#ece9f8', dim:'#8b85ad', border:'rgba(160,150,255,0.17)', surface:'rgba(255,255,255,0.045)', accent:'#a98bff', accent2:'#56e0d8', glow:'rgba(169,139,255,0.13)', dark:true, ink:'#0a0716' },
+    ember:  { label:'Ember', bg:'#15100d', text:'#f3eae3', dim:'#9d8d82', border:'rgba(217,119,87,0.20)', surface:'rgba(255,255,255,0.035)', accent:'#d97757', accent2:'#e6a06a', glow:'rgba(217,119,87,0.13)', dark:true, ink:'#1a0f09' },
+    nova:   { label:'Nova', bg:'#04060e', text:'#e3f4ff', dim:'#6d88a8', border:'rgba(90,200,255,0.20)', surface:'rgba(120,200,255,0.055)', accent:'#3fe9ff', accent2:'#c06bff', glow:'rgba(63,233,255,0.17)', dark:true, ink:'#031018', fx:true, fxType:'nova', grid:'rgba(86,196,255,0.10)' },
+    matrix:   { label:'Matrix', bg:'#000600', text:'#bfffce', dim:'#3f8a55', border:'rgba(0,255,90,0.20)', surface:'rgba(0,40,15,0.32)', accent:'#27ff6a', accent2:'#9dffb4', glow:'rgba(20,255,90,0.13)', dark:true, ink:'#001a08', fx:true, fxType:'matrix' },
+    sentinel: { label:'Sentinel', bg:'#0b0406', text:'#ffe2e6', dim:'#9a6b72', border:'rgba(255,70,90,0.22)', surface:'rgba(255,60,80,0.05)', accent:'#ff3b5c', accent2:'#ff8a4c', glow:'rgba(255,59,92,0.15)', dark:true, ink:'#1a0408', fx:true, fxType:'sentinel' }
+  };
+
+  canvasRef = React.createRef();
+  bgCanvasRef = React.createRef();
+
+  componentDidMount() {
+    const p = this.props || {};
+    const next = {};
+    if (p.theme) next.theme = p.theme;
+    if (p.viz) next.viz = p.viz;
+    if (p.voice) next.voice = p.voice;
+    if (Object.keys(next).length) this.setState(next);
+
+    this.t = 0; this.level = 0; this.rings = []; this._ringT = 0;
+    this.glyphs = 'ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓ0123456789'.split('');
+    this.rain = []; this.rainFs = 16;
+    this.particles = Array.from({ length: 72 }, () => ({
+      a: Math.random()*Math.PI*2, r: 0.18+Math.random()*0.92,
+      sp: 0.2+Math.random()*0.9, sz: 0.7+Math.random()*1.9,
+      ph: Math.random()*Math.PI*2, alt: Math.random()<0.45
+    }));
+
+    const cv = this.canvasRef.current;
+    if (cv) {
+      this.ctx = cv.getContext('2d');
+      this.fit = () => {
+        const r = cv.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        cv.width = Math.max(1, Math.round(r.width*dpr));
+        cv.height = Math.max(1, Math.round(r.height*dpr));
+        this.ctx.setTransform(dpr,0,0,dpr,0,0);
+        this.W = r.width; this.H = r.height;
+      };
+      this.fit();
+      this._onResize = () => this.fit();
+      window.addEventListener('resize', this._onResize);
+      let last = performance.now();
+      const loop = (now) => {
+        const dt = Math.min(0.05, (now-last)/1000); last = now;
+        this.t += dt; this.drawBg(dt); this.draw(dt);
+        this._raf = requestAnimationFrame(loop);
+      };
+      this._raf = requestAnimationFrame(loop);
+    }
+  }
+
+  componentWillUnmount() {
+    cancelAnimationFrame(this._raf);
+    window.removeEventListener('resize', this._onResize);
+    this.clearTimers();
+  }
+
+  clearTimers() { [this._t1, this._t2].forEach(t => clearTimeout(t)); }
+
+  setTheme(id) { this.setState({ theme: id }); }
+  setViz(id) { this.setState({ viz: id }); }
+  setVoice(v) { this.clearTimers(); this.setState({ voice: v }); }
+
+  micClick() {
+    if (this.state.voice === 'idle') {
+      this.clearTimers();
+      this.setState({ voice: 'listening' });
+      this._t1 = setTimeout(() => this.setState({ voice: 'thinking' }), 2600);
+      this._t2 = setTimeout(() => this.setState({ voice: 'speaking' }), 4500);
+    } else {
+      this.setVoice('idle');
+    }
+  }
+
+  hexRgb(h) {
+    const x = h.replace('#','');
+    const f = x.length===3 ? x.split('').map(s=>s+s).join('') : x;
+    const n = parseInt(f,16);
+    return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+  }
+  hexA(h,a) { const c = this.hexRgb(h); return `rgba(${c.r},${c.g},${c.b},${a})`; }
+
+  draw(dt) {
+    const ctx = this.ctx, W = this.W, H = this.H;
+    if (!ctx || !W) return;
+    ctx.clearRect(0,0,W,H);
+    const def = this.themes[this.state.theme];
+    const A = this.hexRgb(def.accent), A2 = this.hexRgb(def.accent2 || def.accent);
+    const rgba = (c,a) => `rgba(${c.r},${c.g},${c.b},${a})`;
+    const voice = this.state.voice;
+
+    const Emap = { idle:0.13, listening:1, thinking:0.5, speaking:0.74 };
+    let target = Emap[voice];
+    if (voice==='listening') target *= 0.5 + 0.5*Math.abs(Math.sin(this.t*6.0)) + Math.random()*0.16;
+    else if (voice==='speaking') target *= 0.6 + 0.4*Math.abs(Math.sin(this.t*4.5));
+    else if (voice==='thinking') target *= 0.5 + 0.5*Math.sin(this.t*2.0);
+    this.level += (target - this.level) * Math.min(1, dt*8);
+    const L = Math.max(0, this.level);
+
+    const cx = W/2, cy = H/2;
+    const base = Math.min(W,H) * 0.2;
+    const mode = this.state.viz;
+    ctx.save();
+
+    if (mode==='wave') {
+      const n = Math.max(22, Math.floor(W/15));
+      const span = W*0.82, x0 = (W-span)/2, bw = span/n;
+      ctx.lineCap = 'round';
+      for (let i=0;i<n;i++){
+        const env = Math.sin((i/(n-1))*Math.PI);
+        const ph = i*0.4;
+        let v = Math.abs(Math.sin(this.t*3+ph)*0.5 + Math.sin(this.t*1.7+ph*1.3+1)*0.34);
+        if (voice==='listening') v += 0.32*Math.abs(Math.sin(this.t*9+i*1.7));
+        const amp = (0.06 + 0.94*env) * L;
+        const h = Math.max(bw*0.5, v*amp*H*0.4 + bw*0.45);
+        const x = x0 + i*bw + bw/2;
+        const grad = ctx.createLinearGradient(0, cy-h, 0, cy+h);
+        grad.addColorStop(0, rgba(A2,0.85)); grad.addColorStop(0.5, rgba(A,1)); grad.addColorStop(1, rgba(A2,0.85));
+        ctx.strokeStyle = grad; ctx.lineWidth = Math.min(bw*0.55, 6);
+        ctx.shadowColor = rgba(A,0.45); ctx.shadowBlur = 12;
+        ctx.beginPath(); ctx.moveTo(x, cy-h); ctx.lineTo(x, cy+h); ctx.stroke();
+      }
+    } else if (mode==='orb') {
+      this._ringT += dt;
+      const every = voice==='listening'?0.5 : voice==='speaking'?0.7 : voice==='thinking'?0.95 : 1.7;
+      if (this._ringT > every) { this._ringT = 0; this.rings.push({ r: base*0.9, a: 0.5 }); }
+      this.rings = this.rings.filter(r => r.a > 0.012);
+      this.rings.forEach(r => {
+        r.r += dt*110*(0.6+L); r.a *= (1 - dt*0.85);
+        ctx.beginPath(); ctx.arc(cx,cy,r.r,0,7); ctx.strokeStyle = rgba(A, r.a*0.6); ctx.lineWidth = 1.5; ctx.stroke();
+      });
+      const R = base*(1.05 + 0.13*L*Math.sin(this.t*3));
+      const g = ctx.createRadialGradient(cx,cy,R*0.2,cx,cy,R*2.5);
+      g.addColorStop(0, rgba(A,0.5)); g.addColorStop(0.5, rgba(A,0.12)); g.addColorStop(1, rgba(A,0));
+      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+      const cg = ctx.createRadialGradient(cx-R*0.32, cy-R*0.32, R*0.1, cx, cy, R);
+      cg.addColorStop(0, rgba(A2,1)); cg.addColorStop(1, rgba(A,0.86));
+      ctx.beginPath(); ctx.arc(cx,cy,R,0,7); ctx.fillStyle = cg;
+      ctx.shadowColor = rgba(A,0.6); ctx.shadowBlur = 34; ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.beginPath(); ctx.arc(cx-R*0.25, cy-R*0.25, R*0.78, 0, 7); ctx.strokeStyle = 'rgba(255,255,255,0.16)'; ctx.lineWidth = 1; ctx.stroke();
+      if (def.fx) {
+        ctx.shadowBlur = 0;
+        ctx.beginPath(); ctx.arc(cx,cy,R*1.55,0,7); ctx.strokeStyle = rgba(A2,0.16); ctx.lineWidth = 1; ctx.stroke();
+        const a0 = this.t*1.3;
+        ctx.beginPath(); ctx.arc(cx,cy,R*1.55,a0,a0+0.95); ctx.strokeStyle = rgba(A2,0.75); ctx.lineWidth = 2; ctx.shadowColor = rgba(A2,0.6); ctx.shadowBlur = 12; ctx.stroke();
+        ctx.beginPath(); ctx.arc(cx,cy,R*1.9,0,7); ctx.strokeStyle = rgba(A,0.08); ctx.lineWidth = 1; ctx.shadowBlur = 0; ctx.stroke();
+      }
+    } else if (mode==='blob') {
+      const g0 = ctx.createRadialGradient(cx,cy,base*0.3,cx,cy,base*2.2);
+      g0.addColorStop(0, rgba(A,0.2)); g0.addColorStop(1, rgba(A,0));
+      ctx.fillStyle = g0; ctx.fillRect(0,0,W,H);
+      const pts = 90;
+      ctx.beginPath();
+      for (let i=0;i<=pts;i++){
+        const ang = (i/pts)*Math.PI*2;
+        const wob = 1 + 0.2*L*Math.sin(ang*3+this.t*2) + 0.13*L*Math.sin(ang*5-this.t*1.6) + 0.06*Math.sin(ang*2+this.t);
+        const rr = base*1.15*wob;
+        const x = cx+Math.cos(ang)*rr, y = cy+Math.sin(ang)*rr;
+        if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
+      ctx.closePath();
+      const bg = ctx.createRadialGradient(cx-base*0.4, cy-base*0.4, base*0.2, cx, cy, base*1.7);
+      bg.addColorStop(0, rgba(A2,0.96)); bg.addColorStop(1, rgba(A,0.85));
+      ctx.fillStyle = bg; ctx.shadowColor = rgba(A,0.55); ctx.shadowBlur = 42; ctx.fill();
+    } else if (mode==='field') {
+      const g = ctx.createRadialGradient(cx,cy,0,cx,cy,base*2.4);
+      g.addColorStop(0, rgba(A,0.16)); g.addColorStop(1, rgba(A,0));
+      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+      const maxR = Math.min(W,H)*0.42;
+      this.particles.forEach(p => {
+        p.a += dt*p.sp*(0.3+0.8*L)*0.55;
+        const pulse = 1 + 0.16*L*Math.sin(this.t*3+p.ph);
+        const rr = p.r*maxR*pulse;
+        const x = cx+Math.cos(p.a)*rr, y = cy+Math.sin(p.a)*rr*0.9;
+        const al = (0.22 + 0.6*(1-p.r)) * (0.45 + 0.55*L);
+        ctx.beginPath(); ctx.arc(x, y, p.sz*(0.8+0.6*L), 0, 7);
+        ctx.fillStyle = rgba(p.alt ? A2 : A, al);
+        ctx.shadowColor = rgba(A,0.5); ctx.shadowBlur = 8; ctx.fill();
+      });
+    }
+    ctx.restore();
+    ctx.shadowBlur = 0;
+  }
+
+  initRain(w, h) {
+    const fs = 16; this.rainFs = fs;
+    const cols = Math.max(1, Math.floor(w / fs));
+    this.rain = Array.from({ length: cols }, (_, i) => ({
+      x: i * fs, y: Math.random() * h, sp: fs * (13 + Math.random() * 17)
+    }));
+  }
+
+  drawBg(dt) {
+    const def = this.themes[this.state.theme];
+    const bc = document.getElementById('vc-rain');
+    if (!bc) return;
+    const ctx = bc.getContext('2d');
+    const r = bc.getBoundingClientRect();
+    if (!r.width) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const W = Math.round(r.width * dpr), H = Math.round(r.height * dpr);
+    if (bc.width !== W || bc.height !== H) {
+      bc.width = W; bc.height = H; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      this.initRain(r.width, r.height);
+    }
+    const w = r.width, h = r.height, fs = this.rainFs;
+    if (def.fxType !== 'matrix') { ctx.clearRect(0, 0, w, h); return; }
+    ctx.fillStyle = 'rgba(0,5,0,0.085)';
+    ctx.fillRect(0, 0, w, h);
+    ctx.font = fs + "px 'JetBrains Mono', ui-monospace, monospace";
+    ctx.textBaseline = 'top';
+    for (const col of this.rain) {
+      ctx.fillStyle = 'rgba(205,255,215,0.95)';
+      ctx.fillText(this.glyphs[(Math.random()*this.glyphs.length)|0], col.x, col.y);
+      ctx.fillStyle = 'rgba(39,255,106,0.55)';
+      ctx.fillText(this.glyphs[(Math.random()*this.glyphs.length)|0], col.x, col.y - fs);
+      col.y += col.sp * dt;
+      if (col.y > h + Math.random() * 240) { col.y = -fs * 2; col.sp = fs * (13 + Math.random() * 17); }
+    }
+  }
+
+  renderVals() {
+    const t = this.themes[this.state.theme];
+    const voice = this.state.voice, viz = this.state.viz;
+    const dark = t.dark;
+    const c = {
+      bg:t.bg, text:t.text, dim:t.dim, border:t.border, surface:t.surface,
+      accent:t.accent, glow:t.glow, ink:t.ink, dark, grid:t.grid || 'transparent',
+      dockBg: dark ? 'rgba(15,16,19,0.74)' : 'rgba(255,255,255,0.8)',
+      codeBg: dark ? 'rgba(0,0,0,0.28)' : 'rgba(20,22,28,0.035)',
+      addText: dark ? '#88e0ac' : '#1c7a4a',
+      addBg: dark ? 'rgba(90,210,140,0.10)' : 'rgba(40,160,90,0.10)'
+    };
+
+    const diff = [
+      { t:'ctx', s:'export function SettingsPanel() {' },
+      { t:'add', s:'  const { theme, toggle } = useTheme();' },
+      { t:'ctx', s:'  return (' },
+      { t:'ctx', s:'    <Panel title="Settings">' },
+      { t:'add', s:'      <Row label="Appearance">' },
+      { t:'add', s:'        <Switch checked={theme === "dark"} onChange={toggle} />' },
+      { t:'add', s:'      </Row>' },
+      { t:'ctx', s:'    </Panel>' },
+      { t:'ctx', s:'  );' }
+    ];
+    const diffRows = diff.map(d => d.t==='add'
+      ? { s:d.s, sign:'+', color:c.addText, bg:c.addBg }
+      : { s:d.s, sign:' ', color:c.dim, bg:'transparent' });
+
+    const files = [
+      { path:'SettingsPanel.tsx', tag:'edited' },
+      { path:'ThemeProvider.tsx', tag:'new' },
+      { path:'useTheme.ts', tag:'new' }
+    ];
+    const fileRows = files.map(f => f.tag==='edited'
+      ? { path:f.path, label:'edited', tagColor:c.accent, tagBg:this.hexA(t.accent,0.13) }
+      : { path:f.path, label:'new', tagColor:c.addText, tagBg:c.addBg });
+
+    const labels = { idle:'Tap to speak', listening:'Listening', thinking:'Thinking', speaking:'Responding' };
+    const caps = { idle:'Voice session ready', listening:'Capturing your request', thinking:'Planning the change', speaking:'3 files updated · typecheck passed' };
+
+    const themeBtns = ['carbon','paper','aurora','ember','nova','matrix','sentinel'].map(id => {
+      const th = this.themes[id];
+      const swatchBg = id==='nova' ? 'linear-gradient(135deg,#3fe9ff,#c06bff)' : th.accent;
+      return { id, label:th.label, swatchBg, ring:id===this.state.theme?th.accent:'transparent', onClick:()=>this.setTheme(id) };
+    });
+    const seg = (cur, fn) => (id) => ({
+      on:id===cur, fg:id===cur?c.ink:c.dim,
+      bg:id===cur?c.accent:'transparent',
+      border:id===cur?'transparent':c.border, onClick:()=>fn(id)
+    });
+    const vS = seg(viz, (id)=>this.setViz(id));
+    const vizBtns = [['orb','Orb'],['wave','Wave'],['blob','Blob'],['field','Field']].map(([id,label])=>({ label, ...vS(id) }));
+    const sS = seg(voice, (id)=>this.setVoice(id));
+    const stateBtns = [['idle','Idle'],['listening','Listen'],['thinking','Think'],['speaking','Speak']].map(([id,label])=>({ label, ...sS(id) }));
+
+    const active = voice !== 'idle';
+    return {
+      canvasRef:this.canvasRef, c,
+      statusLabel:labels[voice], statusCaption:caps[voice],
+      showHint: voice==='idle', showUser: voice!=='idle',
+      showThinking: voice==='thinking', showReply: voice==='speaking',
+      showDock: this.props.showDock ?? true,
+      showNova: t.fxType === 'nova',
+      showMatrix: t.fxType === 'matrix',
+      showSentinel: t.fxType === 'sentinel',
+      diffRows, fileRows, themeBtns, vizBtns, stateBtns,
+      micClick:()=>this.micClick(),
+      micBg: active ? c.accent : (dark ? 'rgba(255,255,255,0.05)' : '#ffffff'),
+      micColor: active ? c.ink : c.text,
+      micBorder: active ? 'transparent' : c.border,
+      micShadow: active ? `0 0 44px ${t.glow}, 0 0 0 1px ${this.hexA(t.accent,0.5)}` : '0 4px 18px rgba(0,0,0,0.12)'
+    };
+  }
+}
+</script>
+</body>
+</html>
