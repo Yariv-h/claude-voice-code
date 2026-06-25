@@ -1,5 +1,11 @@
 // @cvc/core — engine-agnostic brains: speech providers, the Claude tmux bridge,
-// and the turn-taking gateway. Re-exported here as the package's public surface.
-// (Populated incrementally as modules land; see the build plan.)
+// and the turn-taking gateway. This is the package's public surface.
 
 export const VERSION = "0.1.0";
+
+export * from "./types";
+export * from "./config";
+export * from "./audio/pcm";
+export * from "./audio/resample";
+export * from "./audio/markdown";
+export { parseJsonc } from "./util/jsonc";

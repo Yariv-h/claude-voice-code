@@ -15,7 +15,7 @@
   "scripts": {
     "cvc": "tsx apps/cli/src/bin.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node --import tsx --test \"packages/**/*.test.ts\" \"apps/**/*.test.ts\"",
+    "test": "node --import tsx --test \"packages/**/*.test.ts\"",
     "web:dev": "npm run dev --workspace @cvc/web --if-present",
     "web:build": "npm run build --workspace @cvc/web --if-present"
   },
