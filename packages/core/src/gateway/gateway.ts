@@ -2,11 +2,11 @@
 // barge-in (AbortControllers for the in-flight reply and TTS) and emits state +
 // transcripts + audio to whatever front-end drives it (CLI or web server).
 
-import { stripMarkdown } from "../audio/markdown";
 import type { ClaudeBridge } from "../bridge";
 import type { Config } from "../config";
 import type { SttProvider } from "../stt";
 import type { TtsProvider } from "../tts";
+import { condenseForSpeech } from "../summarize";
 import type { VoiceState } from "../types";
 import { reduce, type ActiveState, type GatewayEffect, type VoiceEvent } from "./turnState";
 
@@ -83,7 +83,7 @@ export function createGateway(deps: GatewayDeps): Gateway {
   async function runSay(text: string): Promise<void> {
     const display = text.trim();
     if (display) deps.onAgentText?.(display);
-    const speak = stripMarkdown(text);
+    const speak = condenseForSpeech(text, deps.config.reply);
     if (!deps.tts || !speak) {
       dispatch({ type: "ttsDone" });
       return;

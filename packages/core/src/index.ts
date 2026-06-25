@@ -14,4 +14,5 @@ export * from "./tts";
 export * from "./stt";
 export * from "./gateway";
 export * from "./models";
+export * from "./summarize";
 export { parseJsonc } from "./util/jsonc";
