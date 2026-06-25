@@ -28,9 +28,10 @@ const IMPLEMENTED: Record<string, () => Promise<CommandModule>> = {
   start: () => import("./commands/start"),
   inject: () => import("./commands/inject"),
   say: () => import("./commands/say"),
+  talk: () => import("./commands/talk"),
 };
 
-const PLANNED = new Set(["setup", "talk", "serve", "doctor", "download-models"]);
+const PLANNED = new Set(["setup", "serve", "doctor", "download-models"]);
 
 async function main(argv: string[]): Promise<number> {
   const cmd = argv[0];

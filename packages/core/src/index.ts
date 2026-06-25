@@ -11,4 +11,5 @@ export * from "./audio/markdown";
 export * from "./audio/wav";
 export * from "./bridge";
 export * from "./tts";
+export * from "./stt";
 export { parseJsonc } from "./util/jsonc";

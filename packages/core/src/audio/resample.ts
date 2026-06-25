@@ -23,6 +23,22 @@ export function upsample24to48(int16: Int16Array): Int16Array {
   return out;
 }
 
+/** General linear resampler between arbitrary rates. */
+export function resampleLinear(input: Int16Array, fromRate: number, toRate: number): Int16Array {
+  if (fromRate === toRate || input.length === 0) return input;
+  const ratio = toRate / fromRate;
+  const outLen = Math.max(1, Math.floor(input.length * ratio));
+  const out = new Int16Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    const srcPos = i / ratio;
+    const i0 = Math.floor(srcPos);
+    const i1 = Math.min(i0 + 1, input.length - 1);
+    const frac = srcPos - i0;
+    out[i] = (input[i0] * (1 - frac) + input[i1] * frac) | 0;
+  }
+  return out;
+}
+
 /** Generic integer-factor ×N linear upsample (for arbitrary TTS rates). */
 export function upsampleInt(int16: Int16Array, factor: number): Int16Array {
   if (factor <= 1) return int16;
