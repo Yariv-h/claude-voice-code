@@ -3,6 +3,7 @@
 
 import { parseArgs } from "node:util";
 import { createBridge, loadConfig } from "@cvc/core";
+import { readStdin } from "../stdin";
 
 const HELP = `cvc inject — send text to Claude and print the reply
 
@@ -17,17 +18,6 @@ Options:
       --no-reply         Send only; don't wait for / print the reply
       --timeout <sec>    Max seconds to wait for the reply (default 90)
   -h, --help`;
-
-function readStdin(): Promise<string> {
-  return new Promise((resolve) => {
-    if (process.stdin.isTTY) return resolve("");
-    let data = "";
-    process.stdin.setEncoding("utf8");
-    process.stdin.on("data", (c) => (data += c));
-    process.stdin.on("end", () => resolve(data));
-    process.stdin.on("error", () => resolve(data));
-  });
-}
 
 export async function run(argv: string[]): Promise<number> {
   const { values } = parseArgs({

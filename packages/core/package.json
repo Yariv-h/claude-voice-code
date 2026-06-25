@@ -11,6 +11,9 @@
   "dependencies": {
     "ws": "^8.18.0"
   },
+  "optionalDependencies": {
+    "sherpa-onnx-node": "^1.13.3"
+  },
   "devDependencies": {
     "@types/ws": "^8.5.13"
   }

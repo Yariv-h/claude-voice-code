@@ -12,6 +12,7 @@ Commands:
   talk             Terminal voice loop (push-to-talk; --open-mic for hands-free)
   serve            Start the web UI server (browser, WebRTC)
   inject           Text smoke test: read stdin, send to Claude, print the reply
+  say              Speak text via the configured TTS engine (TTS smoke test)
   doctor           Check tmux/sox/models/api-key/mic and report problems
   download-models  Download offline speech models into the models dir
 
@@ -26,6 +27,7 @@ type CommandModule = { run: (argv: string[]) => Promise<number> };
 const IMPLEMENTED: Record<string, () => Promise<CommandModule>> = {
   start: () => import("./commands/start"),
   inject: () => import("./commands/inject"),
+  say: () => import("./commands/say"),
 };
 
 const PLANNED = new Set(["setup", "talk", "serve", "doctor", "download-models"]);
