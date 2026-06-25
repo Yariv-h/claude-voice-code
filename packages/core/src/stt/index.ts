@@ -1,11 +1,13 @@
 // STT provider factory: pick the engine from config behind one interface.
 
 import type { Config } from "../config";
+import { ElevenLabsStt } from "./elevenlabs";
 import { LocalStt } from "./local";
 import type { SttProvider } from "./types";
 
 export * from "./types";
 export { LocalStt } from "./local";
+export { ElevenLabsStt } from "./elevenlabs";
 
 /** Build the configured STT provider, or null if stt is "off". */
 export function createStt(config: Config): SttProvider | null {
@@ -15,7 +17,7 @@ export function createStt(config: Config): SttProvider | null {
     case "local":
       return new LocalStt(config);
     case "elevenlabs":
-      throw new Error("ElevenLabs STT is added in a later build step.");
+      return new ElevenLabsStt(config);
     default:
       throw new Error(`unknown stt engine: ${config.stt}`);
   }
