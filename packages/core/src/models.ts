@@ -27,7 +27,14 @@ export interface DownloadOpts {
   only?: string | null; // "vad" | "whisper" | "kokoro" | "all" | null (=all)
   hifi?: boolean;
   force?: boolean;
+  /** Whisper dir name to fetch (any sherpa-onnx-whisper-* variant). */
+  whisper?: string;
   log?: (s: string) => void;
+}
+
+/** Build the artifact for any sherpa whisper variant from its dir name. */
+function whisperArtifact(dirName: string): { kind: "tar"; url: string; out: string } {
+  return { kind: "tar", url: `${ASR}/${dirName}.tar.bz2`, out: dirName };
 }
 
 async function download(url: string, dest: string, log: (s: string) => void): Promise<void> {
@@ -67,7 +74,10 @@ export async function downloadModels(opts: DownloadOpts = {}): Promise<void> {
   const list = sel.map((s) => (s === "kokoro" && opts.hifi ? "kokoro-hifi" : s));
   log(`Models → ${dir}`);
   for (const key of list) {
-    const art = MODEL_ARTIFACTS[key];
+    const art =
+      key === "whisper"
+        ? whisperArtifact(opts.whisper ?? "sherpa-onnx-whisper-base.en")
+        : MODEL_ARTIFACTS[key];
     if (!art) throw new Error(`unknown model artifact: ${key}`);
     if (art.kind === "file") {
       const dest = join(dir, art.out);

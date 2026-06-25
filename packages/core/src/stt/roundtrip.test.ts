@@ -16,9 +16,10 @@ import { LocalStt } from "./local";
 import { LocalTts } from "../tts/local";
 
 const cfg = resolveConfig(defaultConfig());
+const wname = cfg.models.whisper.replace(/^sherpa-onnx-whisper-/, "");
 const haveModels =
   existsSync(join(cfg.models.dir, cfg.models.kokoro, "model.int8.onnx")) &&
-  existsSync(join(cfg.models.dir, cfg.models.whisper, "base.en-encoder.int8.onnx"));
+  existsSync(join(cfg.models.dir, cfg.models.whisper, `${wname}-encoder.int8.onnx`));
 const RUN = process.env.CVC_AUDIO_TESTS === "1" && haveModels;
 
 test("local TTS → STT round trip recovers the phrase", { skip: !RUN }, async () => {

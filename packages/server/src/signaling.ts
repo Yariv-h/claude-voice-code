@@ -13,6 +13,7 @@ import {
   downsample48to16,
   int16ToBuffer,
   resampleLinear,
+  rms16,
   type Config,
   type Gateway,
 } from "@cvc/core";
@@ -41,7 +42,10 @@ export function handleConnection(ws: WebSocket, config: Config): void {
       bridge,
       config,
       onState: (s) => send({ type: "state", state: s }),
-      onUserText: (text) => send({ type: "transcript", role: "user", text, final: true }),
+      onUserText: (text) => {
+        console.error(`[stt] "${text}"`);
+        send({ type: "transcript", role: "user", text, final: true });
+      },
       onAgentText: (text) => send({ type: "transcript", role: "agent", text }),
       onAudio: (pcm, rate) => {
         const at48 = rate === 48000 ? pcm : resampleLinear(pcm, rate, 48000);
@@ -61,8 +65,17 @@ export function handleConnection(ws: WebSocket, config: Config): void {
   }
 
   // Mic: 48 kHz PCM frames → 16 kHz → gateway/STT.
+  let dbg = 0;
   transport.onAudioFrame((pcm48) => {
-    gateway?.feedAudio(downsample48to16(bufferToInt16(pcm48)));
+    const i16 = bufferToInt16(pcm48);
+    const d16 = downsample48to16(i16);
+    if (process.env.CVC_DEBUG_AUDIO && dbg < 80) {
+      dbg++;
+      if (dbg % 10 === 0) {
+        console.error(`[audio] f${dbg} in=${i16.length} rms48=${rms16(i16).toFixed(3)} → 16k=${d16.length} rms16=${rms16(d16).toFixed(3)}`);
+      }
+    }
+    gateway?.feedAudio(d16);
   });
   transport.onClose(() => void gateway?.stop());
 

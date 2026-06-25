@@ -39,7 +39,8 @@ export async function run(argv: string[]): Promise<number> {
     line("Kokoro model", existsSync(join(md, k, "model.int8.onnx")) || existsSync(join(md, k, "model.onnx")), md);
   }
   if (config.stt === "local") {
-    line("Whisper model", existsSync(join(md, config.models.whisper, "base.en-encoder.int8.onnx")), md);
+    const wname = config.models.whisper.replace(/^sherpa-onnx-whisper-/, "");
+    line("Whisper model", existsSync(join(md, config.models.whisper, `${wname}-encoder.int8.onnx`)), config.models.whisper);
     line("VAD model", existsSync(join(md, config.models.vad)));
   }
   if (config.stt === "elevenlabs" || config.tts === "elevenlabs") {

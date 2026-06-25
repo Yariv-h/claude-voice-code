@@ -48,9 +48,12 @@ function sherpa(): SherpaModule {
 
 function loadRecognizer(config: Config): SherpaRecognizer {
   const dir = join(config.models.dir, config.models.whisper);
-  const encoder = join(dir, "base.en-encoder.int8.onnx");
-  const decoder = join(dir, "base.en-decoder.int8.onnx");
-  const tokens = join(dir, "base.en-tokens.txt");
+  // Files inside a sherpa whisper dir are prefixed by the model name, e.g.
+  // "sherpa-onnx-whisper-small.en" → small.en-encoder.int8.onnx.
+  const name = config.models.whisper.replace(/^sherpa-onnx-whisper-/, "");
+  const encoder = join(dir, `${name}-encoder.int8.onnx`);
+  const decoder = join(dir, `${name}-decoder.int8.onnx`);
+  const tokens = join(dir, `${name}-tokens.txt`);
   for (const [label, p] of [
     ["encoder", encoder],
     ["decoder", decoder],
@@ -59,7 +62,7 @@ function loadRecognizer(config: Config): SherpaRecognizer {
     if (!existsSync(p)) throw new Error(`Whisper ${label} not found at ${p}. Run "cvc setup".`);
   }
   if (recognizer && recKey === encoder) return recognizer;
-  const numThreads = Number(process.env.CVC_NUM_THREADS || 2);
+  const numThreads = Number(process.env.CVC_NUM_THREADS || 4);
   recognizer = new (sherpa().OfflineRecognizer)({
     featConfig: { sampleRate: RATE_STT, featureDim: 80 },
     modelConfig: {

@@ -63,7 +63,7 @@ function load(config: Config): SherpaOfflineTts {
   if (cached && cachedKey === paths.model) return cached;
   const require = createRequire(import.meta.url);
   const sherpa = require("sherpa-onnx-node") as SherpaModule;
-  const numThreads = Number(process.env.CVC_NUM_THREADS || 2);
+  const numThreads = Number(process.env.CVC_NUM_THREADS || 4);
   cached = new sherpa.OfflineTts({
     model: {
       kokoro: { ...paths, lengthScale: 1.0 },

@@ -132,8 +132,8 @@ export async function awaitReply(
   baseline: TurnBaseline,
   opts: AwaitReplyOpts = {},
 ): Promise<string | null> {
-  const pollMs = opts.pollMs ?? 400;
-  const stableMs = opts.stableMs ?? 1500;
+  const pollMs = opts.pollMs ?? 250;
+  const stableMs = opts.stableMs ?? 900;
   const deadlineMs = opts.deadlineMs ?? 90_000;
   const deadline = Date.now() + deadlineMs;
   let lastText = "";

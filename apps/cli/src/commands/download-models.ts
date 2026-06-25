@@ -37,6 +37,7 @@ export async function run(argv: string[]): Promise<number> {
       only: values.only ?? null,
       hifi: values.hifi,
       force: values.force,
+      whisper: config.models.whisper,
       log: (s) => console.log(s),
     });
   } catch (e) {

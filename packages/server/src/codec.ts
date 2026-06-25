@@ -21,23 +21,28 @@ export const OPUS_FRAME_SAMPLES = 960; // 20 ms @ 48 kHz
 export const OPUS_FRAME_BYTES = OPUS_FRAME_SAMPLES * 2; // mono s16
 
 export class OpusCodec {
-  private codec = new OpusScript(OPUS_RATE, 1, OpusScript.Application.AUDIO);
+  // Separate encoder + decoder instances: a single opusscript instance used for
+  // both, interleaved on the 20 ms pacer, corrupts its internal state (buzzing).
+  private encoder = new OpusScript(OPUS_RATE, 1, OpusScript.Application.AUDIO);
+  private decoder = new OpusScript(OPUS_RATE, 1, OpusScript.Application.AUDIO);
 
   /** Opus → 48 kHz mono s16 PCM. */
   decode(opus: Buffer): Buffer {
-    return this.codec.decode(opus);
+    return this.decoder.decode(opus);
   }
 
   /** One 20 ms PCM frame (1920 bytes) → Opus. */
   encodeFrame(pcm: Buffer): Buffer {
-    return this.codec.encode(pcm, OPUS_FRAME_SAMPLES);
+    return this.encoder.encode(pcm, OPUS_FRAME_SAMPLES);
   }
 
   destroy(): void {
-    try {
-      this.codec.delete?.();
-    } catch {
-      /* ignore */
+    for (const c of [this.encoder, this.decoder]) {
+      try {
+        c.delete?.();
+      } catch {
+        /* ignore */
+      }
     }
   }
 }

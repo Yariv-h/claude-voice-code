@@ -63,7 +63,7 @@ export async function run(argv: string[]): Promise<number> {
     try {
       if (config.stt === "local") {
         await downloadModels({ dir: config.models.dir, only: "vad", log: (s) => console.log(s) });
-        await downloadModels({ dir: config.models.dir, only: "whisper", log: (s) => console.log(s) });
+        await downloadModels({ dir: config.models.dir, only: "whisper", whisper: config.models.whisper, log: (s) => console.log(s) });
       }
       if (config.tts === "local") {
         await downloadModels({ dir: config.models.dir, only: "kokoro", hifi: values.hifi, log: (s) => console.log(s) });
