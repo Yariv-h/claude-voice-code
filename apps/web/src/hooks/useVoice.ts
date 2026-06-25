@@ -13,6 +13,15 @@ export interface TranscriptLine {
   partial?: boolean;
 }
 
+export interface VoiceSettings {
+  stt?: "local" | "elevenlabs" | "off";
+  tts?: "local" | "elevenlabs" | "off";
+  kokoroSpeaker?: number;
+  ttsVoiceId?: string;
+  model?: string;
+  restartSession?: boolean;
+}
+
 type ServerMsg =
   | { type: "answer"; sdp: RTCSessionDescriptionInit }
   | { type: "ice"; candidate: RTCIceCandidateInit }
@@ -31,8 +40,9 @@ export interface UseVoice {
   state: VoiceState;
   muted: boolean;
   transcript: TranscriptLine[];
-  start: () => Promise<void>;
+  start: (settings?: VoiceSettings) => Promise<void>;
   stop: () => void;
+  reconnect: (settings?: VoiceSettings) => void;
   setMicMuted: (m: boolean) => void;
   micAnalyser: AnalyserRef;
   ttsAnalyser: AnalyserRef;
@@ -71,7 +81,7 @@ export function useVoice(opts: { openMic?: boolean } = {}): UseVoice {
     }
   };
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (settings: VoiceSettings = {}) => {
     if (pcRef.current) return;
     const signalingUrl = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/api/voice/signal";
 
@@ -120,7 +130,7 @@ export function useVoice(opts: { openMic?: boolean } = {}): UseVoice {
     };
 
     await new Promise<void>((r) => (ws.onopen = () => r()));
-    ws.send(JSON.stringify({ type: "hello", openMic }));
+    ws.send(JSON.stringify({ type: "hello", openMic, ...settings }));
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     ws.send(JSON.stringify({ type: "offer", sdp: offer }));
@@ -137,6 +147,14 @@ export function useVoice(opts: { openMic?: boolean } = {}): UseVoice {
     if (audioElRef.current) audioElRef.current.srcObject = null;
     setState("off");
   }, []);
+
+  const reconnect = useCallback(
+    (settings: VoiceSettings = {}) => {
+      stop();
+      window.setTimeout(() => void start(settings), 200);
+    },
+    [stop, start],
+  );
 
   const setMicMuted = useCallback((m: boolean) => {
     streamRef.current?.getAudioTracks().forEach((t) => (t.enabled = !m));
@@ -199,5 +217,5 @@ export function useVoice(opts: { openMic?: boolean } = {}): UseVoice {
 
   useEffect(() => () => stop(), [stop]);
 
-  return { state, muted, transcript, start, stop, setMicMuted, micAnalyser, ttsAnalyser };
+  return { state, muted, transcript, start, stop, reconnect, setMicMuted, micAnalyser, ttsAnalyser };
 }

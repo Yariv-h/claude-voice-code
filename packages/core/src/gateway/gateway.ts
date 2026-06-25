@@ -90,14 +90,21 @@ export function createGateway(deps: GatewayDeps): Gateway {
     }
     ttsAbort = new AbortController();
     const signal = ttsAbort.signal;
+    const t0 = Date.now();
+    let first = false;
     try {
       await deps.tts.synthesize(
         speak,
         (c) => {
+          if (!first) {
+            first = true;
+            if (process.env.CVC_DEBUG_AUDIO) console.error(`[tts] first audio +${Date.now() - t0}ms (${speak.length} chars)`);
+          }
           if (!signal.aborted) deps.onAudio?.(c.pcm, c.sampleRate);
         },
         signal,
       );
+      if (process.env.CVC_DEBUG_AUDIO) console.error(`[tts] synth done +${Date.now() - t0}ms`);
     } catch {
       /* synthesis failed/aborted */
     }

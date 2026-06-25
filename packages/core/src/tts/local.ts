@@ -77,10 +77,34 @@ function load(config: Config): SherpaOfflineTts {
   return cached;
 }
 
-/** Split into sentence-ish chunks so playback starts before the whole reply. */
-function splitSentences(text: string): string[] {
-  const parts = text.match(/[^.!?\n]+[.!?]*\s*/g);
-  return (parts ?? [text]).map((s) => s.trim()).filter(Boolean);
+/**
+ * Split into small speakable chunks so the first words play within ~1s while the
+ * rest synthesize. Sentences first; long sentences are sub-split on clause breaks
+ * and capped (~160 chars) — one giant chunk would delay all audio until it's done.
+ */
+const MAX_CHUNK = 160;
+function splitForStreaming(text: string): string[] {
+  const chunks: string[] = [];
+  const sentences = text.match(/[^.!?\n]+[.!?]+|[^.!?\n]+$/g) ?? [text];
+  for (const raw of sentences) {
+    const s = raw.trim();
+    if (!s) continue;
+    if (s.length <= MAX_CHUNK) {
+      chunks.push(s);
+      continue;
+    }
+    let buf = "";
+    for (const part of s.split(/(?<=[,;:])\s+/)) {
+      if (buf && (buf + " " + part).length > MAX_CHUNK) {
+        chunks.push(buf.trim());
+        buf = part;
+      } else {
+        buf = buf ? `${buf} ${part}` : part;
+      }
+    }
+    if (buf.trim()) chunks.push(buf.trim());
+  }
+  return chunks.length ? chunks : [text.trim()].filter(Boolean);
 }
 
 export class LocalTts implements TtsProvider {
@@ -99,7 +123,7 @@ export class LocalTts implements TtsProvider {
     signal?: AbortSignal,
   ): Promise<void> {
     const tts = load(this.config);
-    for (const sentence of splitSentences(text)) {
+    for (const sentence of splitForStreaming(text)) {
       if (signal?.aborted) break;
       const audio = tts.generate({ text: sentence, sid: this.speaker, speed: this.speed });
       if (signal?.aborted) break;
