@@ -8,4 +8,5 @@ export * from "./config";
 export * from "./audio/pcm";
 export * from "./audio/resample";
 export * from "./audio/markdown";
+export * from "./bridge";
 export { parseJsonc } from "./util/jsonc";

@@ -1,5 +1,4 @@
 // cvc — command-line entry point. Parses the subcommand and dispatches.
-// Commands are implemented incrementally; unimplemented ones report their status.
 
 const VERSION = "0.1.0";
 
@@ -14,7 +13,7 @@ Commands:
   serve            Start the web UI server (browser, WebRTC)
   inject           Text smoke test: read stdin, send to Claude, print the reply
   doctor           Check tmux/sox/models/api-key/mic and report problems
-  download-models  Download offline speech models into ./models
+  download-models  Download offline speech models into the models dir
 
 Options:
   -h, --help       Show this help
@@ -22,15 +21,14 @@ Options:
 
 Run "cvc <command> --help" for command-specific options.`;
 
-const COMMANDS = new Set([
-  "setup",
-  "start",
-  "talk",
-  "serve",
-  "inject",
-  "doctor",
-  "download-models",
-]);
+type CommandModule = { run: (argv: string[]) => Promise<number> };
+
+const IMPLEMENTED: Record<string, () => Promise<CommandModule>> = {
+  start: () => import("./commands/start"),
+  inject: () => import("./commands/inject"),
+};
+
+const PLANNED = new Set(["setup", "talk", "serve", "doctor", "download-models"]);
 
 async function main(argv: string[]): Promise<number> {
   const cmd = argv[0];
@@ -44,7 +42,13 @@ async function main(argv: string[]): Promise<number> {
     return 0;
   }
 
-  if (COMMANDS.has(cmd)) {
+  const loader = IMPLEMENTED[cmd];
+  if (loader) {
+    const mod = await loader();
+    return mod.run(argv.slice(1));
+  }
+
+  if (PLANNED.has(cmd)) {
     console.error(`🚧  "${cmd}" is not implemented yet — coming soon.`);
     return 1;
   }
@@ -57,6 +61,6 @@ async function main(argv: string[]): Promise<number> {
 main(process.argv.slice(2))
   .then((code) => process.exit(code))
   .catch((err) => {
-    console.error(err);
+    console.error(err instanceof Error ? err.message : err);
     process.exit(1);
   });

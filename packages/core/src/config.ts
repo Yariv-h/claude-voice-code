@@ -35,6 +35,7 @@ export interface TmuxConfig {
   session: string;
   cwd: string | null;
   attach: string | null;
+  socket: string | null;
 }
 export interface ReplyConfig {
   verbatimMaxChars: number;
@@ -48,6 +49,7 @@ export interface ServerConfig {
 export interface Config {
   stt: Side;
   tts: Side;
+  claudeBin: string;
   elevenlabs: ElevenLabsConfig;
   models: ModelsConfig;
   vad: VadConfig;
@@ -68,6 +70,7 @@ export function defaultConfig(): Config {
   return {
     stt: "local",
     tts: "local",
+    claudeBin: "claude",
     elevenlabs: {
       apiKey: "",
       ttsVoiceId: "EXAVITQu4vr4xnSDxMaL", // "Sarah"
@@ -83,7 +86,7 @@ export function defaultConfig(): Config {
     },
     vad: { windowSize: 512, threshold: 0.5, minSilenceSec: 0.7, minSpeechSec: 0.2, maxSpeechSec: 20 },
     voice: { kokoroSpeaker: 0, speed: 1.0 },
-    tmux: { session: "claude-voice", cwd: null, attach: null },
+    tmux: { session: "claude-voice", cwd: null, attach: null, socket: null },
     reply: { verbatimMaxChars: 220, summarize: false },
     server: { port: 5173, host: "127.0.0.1" },
   };
@@ -125,11 +128,13 @@ export function envOverrides(env: NodeJS.ProcessEnv = process.env): DeepPartial<
   if (tts) o.tts = tts;
   if (env.ELEVENLABS_API_KEY) o.elevenlabs = { apiKey: env.ELEVENLABS_API_KEY };
   if (env.CVC_MODELS_DIR) o.models = { dir: env.CVC_MODELS_DIR };
+  if (env.CLAUDE_BIN) o.claudeBin = env.CLAUDE_BIN;
 
   const tmux: DeepPartial<TmuxConfig> = {};
   if (env.CVC_TMUX_SESSION) tmux.session = env.CVC_TMUX_SESSION;
   if (env.CVC_CLAUDE_CWD) tmux.cwd = env.CVC_CLAUDE_CWD;
   if (env.CVC_TMUX_ATTACH) tmux.attach = env.CVC_TMUX_ATTACH;
+  if (env.CVC_TMUX_SOCKET) tmux.socket = env.CVC_TMUX_SOCKET;
   if (Object.keys(tmux).length) o.tmux = tmux;
 
   const server: DeepPartial<ServerConfig> = {};

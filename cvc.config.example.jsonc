@@ -7,6 +7,9 @@
   "stt": "local",
   "tts": "local",
 
+  // Path or name of the Claude Code binary that `cvc start` launches.
+  "claudeBin": "claude",
+
   "elevenlabs": {
     // Prefer the ELEVENLABS_API_KEY env var over committing a key here.
     "apiKey": "",
@@ -41,7 +44,8 @@
   "tmux": {
     "session": "claude-voice", // managed session name (created if missing)
     "cwd": null,               // Claude's working dir; null = cwd where you run cvc
-    "attach": null             // set to an existing tmux session name to bind it
+    "attach": null,            // set to an existing tmux session name to bind it
+    "socket": null             // tmux socket path; null = tmux's default (CVC_TMUX_SOCKET)
   },
 
   "reply": {
