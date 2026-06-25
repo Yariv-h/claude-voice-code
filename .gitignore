@@ -1,0 +1,20 @@
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# Downloaded speech models (populated by `cvc setup`)
+models/*
+!models/.gitkeep
+
+# Local config / secrets (keep cvc.config.example.jsonc in git)
+cvc.config.jsonc
+*.local.json
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+*.log
+.vscode/
+.idea/

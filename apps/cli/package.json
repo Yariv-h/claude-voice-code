@@ -1,0 +1,15 @@
+{
+  "name": "@cvc/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "cvc": "./bin/cvc.mjs"
+  },
+  "dependencies": {
+    "@cvc/core": "*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2"
+  }
+}

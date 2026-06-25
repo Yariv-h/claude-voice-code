@@ -1,0 +1,27 @@
+{
+  "name": "claude-voice-code",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Talk to Claude Code by voice — terminal CLI + web UI.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "cvc": "tsx apps/cli/src/bin.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --import tsx --test \"packages/**/*.test.ts\" \"apps/**/*.test.ts\"",
+    "web:dev": "npm run dev --workspace @cvc/web --if-present",
+    "web:build": "npm run build --workspace @cvc/web --if-present"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

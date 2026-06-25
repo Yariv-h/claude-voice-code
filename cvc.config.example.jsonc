@@ -1,0 +1,54 @@
+{
+  // ── Speech engines ───────────────────────────────────────────────────────
+  // Each side is independent: "local" | "elevenlabs" | "off".
+  //   local       offline sherpa-onnx (no API key; run `cvc setup` for models)
+  //   elevenlabs  cloud (set ELEVENLABS_API_KEY); higher quality, lower latency
+  //   off         disable that side (e.g. "tts": "off" to only transcribe)
+  "stt": "local",
+  "tts": "local",
+
+  "elevenlabs": {
+    // Prefer the ELEVENLABS_API_KEY env var over committing a key here.
+    "apiKey": "",
+    "ttsVoiceId": "EXAVITQu4vr4xnSDxMaL", // "Sarah" (works on free tier)
+    "ttsModel": "eleven_flash_v2_5",      // low-latency streaming
+    "sttModel": "scribe_v1"
+  },
+
+  "models": {
+    "dir": "./models",                        // where `cvc setup` downloads to
+    "whisper": "sherpa-onnx-whisper-base.en", // STT model directory name
+    "vad": "silero_vad.onnx",                 // VAD model file name
+    "kokoro": "kokoro-int8-en-v0_19",         // TTS model directory name
+    "kokoroQuality": "int8"                   // "int8" (~103MB) | "fp32" (~320MB)
+  },
+
+  "vad": {
+    "windowSize": 512,
+    "threshold": 0.5,
+    "minSilenceSec": 0.7,
+    "minSpeechSec": 0.2,
+    "maxSpeechSec": 20
+  },
+
+  "voice": {
+    "kokoroSpeaker": 0, // Kokoro speaker id (0–10)
+    "speed": 1.0
+  },
+
+  "tmux": {
+    "session": "claude-voice", // managed session name (created if missing)
+    "cwd": null,               // Claude's working dir; null = cwd where you run cvc
+    "attach": null             // set to an existing tmux session name to bind it
+  },
+
+  "reply": {
+    "verbatimMaxChars": 220, // replies ≤ this are spoken verbatim
+    "summarize": false       // summarize longer replies via a cheap LLM hop
+  },
+
+  "server": {
+    "port": 5173,
+    "host": "127.0.0.1"
+  }
+}
