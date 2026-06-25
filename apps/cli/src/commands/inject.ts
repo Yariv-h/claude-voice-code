@@ -1,10 +1,10 @@
 // `cvc inject` — text smoke test for the bridge: send a message to Claude and
-// (from step 4) print the reply.
+// print its reply (the whole product, headless).
 
 import { parseArgs } from "node:util";
 import { createBridge, loadConfig } from "@cvc/core";
 
-const HELP = `cvc inject — send text to Claude (bridge smoke test)
+const HELP = `cvc inject — send text to Claude and print the reply
 
 Usage:
   cvc inject -m "your message"
@@ -15,6 +15,7 @@ Options:
       --attach <name>    Use an existing tmux session
       --no-launch        Don't launch claude if the session must be created
       --no-reply         Send only; don't wait for / print the reply
+      --timeout <sec>    Max seconds to wait for the reply (default 90)
   -h, --help`;
 
 function readStdin(): Promise<string> {
@@ -36,6 +37,7 @@ export async function run(argv: string[]): Promise<number> {
       attach: { type: "string" },
       "no-launch": { type: "boolean", default: false },
       "no-reply": { type: "boolean", default: false },
+      timeout: { type: "string" },
       help: { type: "boolean", short: "h", default: false },
     },
     allowPositionals: true,
@@ -63,13 +65,22 @@ export async function run(argv: string[]): Promise<number> {
     console.error(`Created tmux session "${bridge.target.session}" (launched ${config.claudeBin}).`);
   }
 
-  bridge.inject(text);
-
   if (values["no-reply"]) {
+    bridge.inject(text);
     console.error(`Sent to ${bridge.target.session}.`);
     return 0;
   }
-  // Reply polling is wired in the next build step (turn reader).
-  console.error("Sent. (Reply polling is added in the next build step.)");
+
+  const deadlineMs = values.timeout ? Number(values.timeout) * 1000 : undefined;
+  process.stderr.write("· thinking…\n");
+  const t0 = Date.now();
+  const reply = await bridge.send(text, deadlineMs ? { deadlineMs } : {});
+  const secs = ((Date.now() - t0) / 1000).toFixed(1);
+  if (reply == null) {
+    console.error(`No reply within ${secs}s.`);
+    return 1;
+  }
+  process.stdout.write(reply.trim() + "\n");
+  console.error(`· ${secs}s`);
   return 0;
 }
