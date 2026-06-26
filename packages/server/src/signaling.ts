@@ -12,12 +12,14 @@ import {
   createGateway,
   createStt,
   createTts,
+  downloadModels,
   downsample48to16,
   int16ToBuffer,
   killSession,
   resampleLinear,
   resolveSocket,
   rms16,
+  whisperEncoderPath,
   type Config,
   type Gateway,
   type Side,
@@ -32,10 +34,16 @@ interface Hello {
   kokoroSpeaker?: number;
   ttsVoiceId?: string;
   model?: string;
+  thinking?: string;
+  whisper?: string;
   restartSession?: boolean;
 }
 
 const isSide = (v: unknown): v is Side => v === "local" || v === "elevenlabs" || v === "off";
+
+// Claude Code's extended-thinking triggers, by UI level.
+const THINK: Record<string, string> = { think: "Think.", "think-hard": "Think hard.", ultra: "Ultrathink." };
+const thinkPrefix = (level?: string): string | undefined => (level && THINK[level] ? THINK[level] : undefined);
 
 /** Merge per-connection UI settings from the hello message onto the base config. */
 function applyHello(base: Config, m: Hello): Config {
@@ -52,6 +60,9 @@ function applyHello(base: Config, m: Hello): Config {
   if (typeof m.ttsVoiceId === "string" && m.ttsVoiceId) cfg.elevenlabs.ttsVoiceId = m.ttsVoiceId;
   if (typeof m.model === "string" && m.model && m.model !== "default") {
     cfg.claudeBin = `${base.claudeBin} --model ${m.model}`;
+  }
+  if (typeof m.whisper === "string" && /^sherpa-onnx-whisper-[\w.-]+$/.test(m.whisper)) {
+    cfg.models.whisper = m.whisper;
   }
   return cfg;
 }
@@ -103,6 +114,13 @@ export function handleConnection(ws: WebSocket, baseConfig: Config): void {
             /* nothing to kill */
           }
         }
+        // Download the chosen Whisper variant on demand (first time only).
+        if (cfg.stt === "local" && !whisperEncoderPath(cfg.models.dir, cfg.models.whisper)) {
+          const label = cfg.models.whisper.replace("sherpa-onnx-whisper-", "");
+          send({ type: "notice", text: `Downloading ${label} model — first time only, please wait…` });
+          await downloadModels({ dir: cfg.models.dir, only: "whisper", whisper: cfg.models.whisper });
+          send({ type: "notice", text: "" });
+        }
         const stt = createStt(cfg);
         if (!stt) throw new Error('stt is "off" — set it to local or elevenlabs to use voice.');
         const tts = createTts(cfg);
@@ -112,6 +130,7 @@ export function handleConnection(ws: WebSocket, baseConfig: Config): void {
           tts,
           bridge,
           config: cfg,
+          thinkingPrefix: thinkPrefix((msg as Hello).thinking),
           onState: (s) => send({ type: "state", state: s }),
           onUserText: (text) => {
             console.error(`[stt] "${text}"`);

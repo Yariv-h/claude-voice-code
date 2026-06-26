@@ -6,7 +6,7 @@ import { LocalStt } from "./local";
 import type { SttProvider } from "./types";
 
 export * from "./types";
-export { LocalStt } from "./local";
+export { LocalStt, whisperEncoderPath } from "./local";
 export { ElevenLabsStt } from "./elevenlabs";
 
 /** Build the configured STT provider, or null if stt is "off". */

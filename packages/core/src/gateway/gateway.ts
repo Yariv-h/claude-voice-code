@@ -15,6 +15,8 @@ export interface GatewayDeps {
   tts: TtsProvider | null;
   bridge: ClaudeBridge;
   config: Config;
+  /** Prepended to each injected turn to set Claude's thinking level (e.g. "Think hard."). */
+  thinkingPrefix?: string;
   /** State changes (idle/listening/thinking/speaking, and "off" after stop). */
   onState?(s: VoiceState): void;
   /** A finalized user utterance (for transcript UI). */
@@ -70,12 +72,13 @@ export function createGateway(deps: GatewayDeps): Gateway {
   }
 
   async function runTurn(text: string): Promise<void> {
-    deps.onUserText?.(text);
+    deps.onUserText?.(text); // show the raw words
+    const injected = deps.thinkingPrefix ? `${deps.thinkingPrefix} ${text}` : text;
     const baseline = deps.bridge.captureBaseline();
-    deps.bridge.inject(text);
+    deps.bridge.inject(injected);
     replyAbort = new AbortController();
     const signal = replyAbort.signal;
-    const reply = await deps.bridge.awaitReply(baseline, { signal, match: text });
+    const reply = await deps.bridge.awaitReply(baseline, { signal, match: injected });
     if (signal.aborted) return; // user barged in
     dispatch({ type: "replyReady", text: reply ?? "" });
   }

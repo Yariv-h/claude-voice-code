@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { MatrixRain } from "./components/MatrixRain";
 import { Visualizer } from "./components/Visualizer";
-import { useVoice, type VoiceState } from "./hooks/useVoice";
+import { useVoice, type VoiceSettings, type VoiceState } from "./hooks/useVoice";
 import { hexA, THEME_ORDER, THEMES, VIZ_ORDER, type ThemeId, type VizId } from "./themes";
 
 const mono = "'JetBrains Mono', monospace";
@@ -29,6 +29,18 @@ const MODELS = [
   { v: "sonnet", label: "Sonnet" },
   { v: "haiku", label: "Haiku" },
 ];
+const THINKING = [
+  { v: "off", label: "Off" },
+  { v: "think", label: "Think" },
+  { v: "think-hard", label: "Hard" },
+  { v: "ultra", label: "Ultra" },
+];
+// Whisper sizes (s/m/l) for testing latency vs accuracy; downloaded on first use.
+const WHISPERS = [
+  { v: "sherpa-onnx-whisper-small.en", label: "S" },
+  { v: "sherpa-onnx-whisper-medium.en", label: "M" },
+  { v: "sherpa-onnx-whisper-large-v3", label: "L" },
+];
 
 export function App() {
   const [themeId, setThemeId] = useState<ThemeId>("nova");
@@ -36,8 +48,10 @@ export function App() {
   const [engine, setEngine] = useState<"local" | "elevenlabs">("local");
   const [model, setModel] = useState("default");
   const [speaker, setSpeaker] = useState(0);
+  const [thinking, setThinking] = useState("off");
+  const [whisper, setWhisper] = useState("sherpa-onnx-whisper-small.en");
 
-  const { state, muted, transcript, start, stop, reconnect, setMicMuted, micAnalyser, ttsAnalyser } =
+  const { state, muted, transcript, notice, start, stop, reconnect, setMicMuted, micAnalyser, ttsAnalyser } =
     useVoice({ openMic: true });
 
   const t = THEMES[themeId];
@@ -46,23 +60,38 @@ export function App() {
   const connected = state !== "off";
   const active = connected && !muted;
 
-  const settings = () => ({ stt: engine, tts: engine, kokoroSpeaker: speaker, model });
-
+  const settingsWith = (over: Partial<VoiceSettings>): VoiceSettings => ({
+    stt: engine,
+    tts: engine,
+    kokoroSpeaker: speaker,
+    model,
+    thinking,
+    whisper,
+    ...over,
+  });
   const onMic = () => {
-    if (state === "off") void start(settings());
+    if (state === "off") void start(settingsWith({}));
     else setMicMuted(!muted);
   };
   const changeEngine = (e: "local" | "elevenlabs") => {
     setEngine(e);
-    if (connected) reconnect({ stt: e, tts: e, kokoroSpeaker: speaker, model });
+    if (connected) reconnect(settingsWith({ stt: e, tts: e }));
   };
   const changeModel = (m: string) => {
     setModel(m);
-    if (connected) reconnect({ stt: engine, tts: engine, kokoroSpeaker: speaker, model: m, restartSession: true });
+    if (connected) reconnect(settingsWith({ model: m, restartSession: true }));
   };
   const changeVoice = (s: number) => {
     setSpeaker(s);
-    if (connected) reconnect({ stt: engine, tts: engine, kokoroSpeaker: s, model });
+    if (connected) reconnect(settingsWith({ kokoroSpeaker: s }));
+  };
+  const changeThinking = (th: string) => {
+    setThinking(th);
+    if (connected) reconnect(settingsWith({ thinking: th }));
+  };
+  const changeWhisper = (w: string) => {
+    setWhisper(w);
+    if (connected) reconnect(settingsWith({ whisper: w }));
   };
 
   // Auto-scroll the conversation to the latest line.
@@ -139,6 +168,7 @@ export function App() {
               {muted && connected ? "Muted" : LABEL[state]}
             </div>
             <div style={{ fontSize: 13, color: c.dim, marginTop: 6 }}>{muted && connected ? "Tap the mic to unmute" : CAPTION[state]}</div>
+            {notice && <div style={{ fontSize: 12, color: c.accent, marginTop: 6, fontFamily: mono }}>⏳ {notice}</div>}
           </div>
           <button
             onClick={onMic}
@@ -283,8 +313,16 @@ export function App() {
           <Picker value={model} onChange={changeModel} options={MODELS} c={c} />
         </DockGroup>
 
+        <DockGroup label="Thinking">
+          <Picker value={thinking} onChange={changeThinking} options={THINKING} c={c} />
+        </DockGroup>
+
         <DockGroup label="Engine">
           <Segmented options={[{ v: "local", label: "Local" }, { v: "elevenlabs", label: "11Labs" }]} value={engine} onChange={(v) => changeEngine(v as "local" | "elevenlabs")} c={c} />
+        </DockGroup>
+
+        <DockGroup label="STT">
+          <Segmented options={WHISPERS} value={whisper} onChange={changeWhisper} c={c} />
         </DockGroup>
       </div>
     </div>

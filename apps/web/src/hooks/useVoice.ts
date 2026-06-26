@@ -19,6 +19,8 @@ export interface VoiceSettings {
   kokoroSpeaker?: number;
   ttsVoiceId?: string;
   model?: string;
+  thinking?: string;
+  whisper?: string;
   restartSession?: boolean;
 }
 
@@ -27,6 +29,7 @@ type ServerMsg =
   | { type: "ice"; candidate: RTCIceCandidateInit }
   | { type: "state"; state: VoiceState }
   | { type: "transcript"; role: "user" | "agent"; text: string; partial?: boolean }
+  | { type: "notice"; text: string }
   | { type: "error"; error: string };
 
 function mergeTranscript(prev: TranscriptLine[], m: { role: "user" | "agent"; text: string; partial?: boolean }): TranscriptLine[] {
@@ -40,6 +43,7 @@ export interface UseVoice {
   state: VoiceState;
   muted: boolean;
   transcript: TranscriptLine[];
+  notice: string;
   start: (settings?: VoiceSettings) => Promise<void>;
   stop: () => void;
   reconnect: (settings?: VoiceSettings) => void;
@@ -53,6 +57,7 @@ export function useVoice(opts: { openMic?: boolean } = {}): UseVoice {
   const [state, setState] = useState<VoiceState>("off");
   const [muted, setMuted] = useState(!openMic);
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
+  const [notice, setNotice] = useState("");
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -117,9 +122,13 @@ export function useVoice(opts: { openMic?: boolean } = {}): UseVoice {
         else pendingIce.push(msg.candidate);
       } else if (msg.type === "state") {
         setState(msg.state);
+        setNotice("");
       } else if (msg.type === "transcript") {
         setTranscript((p) => mergeTranscript(p, msg));
+      } else if (msg.type === "notice") {
+        setNotice(msg.text);
       } else if (msg.type === "error") {
+        setNotice("");
         console.error("[voice] server:", msg.error);
       }
     };
@@ -217,5 +226,5 @@ export function useVoice(opts: { openMic?: boolean } = {}): UseVoice {
 
   useEffect(() => () => stop(), [stop]);
 
-  return { state, muted, transcript, start, stop, reconnect, setMicMuted, micAnalyser, ttsAnalyser };
+  return { state, muted, transcript, notice, start, stop, reconnect, setMicMuted, micAnalyser, ttsAnalyser };
 }

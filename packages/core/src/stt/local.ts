@@ -46,21 +46,28 @@ function sherpa(): SherpaModule {
   return require("sherpa-onnx-node") as SherpaModule;
 }
 
+/**
+ * Encoder path for a sherpa whisper dir — files are prefixed by the model name
+ * (e.g. "sherpa-onnx-whisper-small.en" → small.en-encoder.int8.onnx). int8 is
+ * preferred; large-v3 etc. may ship fp32 only. Returns null if absent.
+ */
+export function whisperEncoderPath(modelsDir: string, whisperDir: string): string | null {
+  const dir = join(modelsDir, whisperDir);
+  const name = whisperDir.replace(/^sherpa-onnx-whisper-/, "");
+  const int8 = join(dir, `${name}-encoder.int8.onnx`);
+  const fp32 = join(dir, `${name}-encoder.onnx`);
+  return existsSync(int8) ? int8 : existsSync(fp32) ? fp32 : null;
+}
+
 function loadRecognizer(config: Config): SherpaRecognizer {
   const dir = join(config.models.dir, config.models.whisper);
-  // Files inside a sherpa whisper dir are prefixed by the model name, e.g.
-  // "sherpa-onnx-whisper-small.en" → small.en-encoder.int8.onnx.
   const name = config.models.whisper.replace(/^sherpa-onnx-whisper-/, "");
-  const encoder = join(dir, `${name}-encoder.int8.onnx`);
-  const decoder = join(dir, `${name}-decoder.int8.onnx`);
-  const tokens = join(dir, `${name}-tokens.txt`);
-  for (const [label, p] of [
-    ["encoder", encoder],
-    ["decoder", decoder],
-    ["tokens", tokens],
-  ] as const) {
-    if (!existsSync(p)) throw new Error(`Whisper ${label} not found at ${p}. Run "cvc setup".`);
+  const encoder = whisperEncoderPath(config.models.dir, config.models.whisper);
+  if (!encoder) {
+    throw new Error(`Whisper model "${config.models.whisper}" not found in ${config.models.dir}. Run "cvc setup".`);
   }
+  const decoder = encoder.replace("-encoder.", "-decoder."); // same int8/fp32 variant
+  const tokens = join(dir, `${name}-tokens.txt`);
   if (recognizer && recKey === encoder) return recognizer;
   const numThreads = Number(process.env.CVC_NUM_THREADS || 4);
   recognizer = new (sherpa().OfflineRecognizer)({
