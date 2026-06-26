@@ -99,6 +99,23 @@ function makeVad(config: Config): SherpaVad {
   );
 }
 
+/**
+ * Whisper marks non-speech as bracketed/parenthesized annotations — e.g.
+ * "[BLANK_AUDIO]", "(buzzing)", "(buzzer)", "[ Silence ]", "♪ … ♪". Strip them so
+ * noise never reaches Claude; return "" when nothing speech-like remains (any
+ * Unicode letter/number counts as speech, so non-English transcripts survive).
+ */
+export function cleanTranscript(raw: string): string {
+  const cleaned = raw
+    .replace(/\[[^\]]*\]/g, " ")
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\*[^*]*\*/g, " ")
+    .replace(/♪[^♪]*♪?/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return /[\p{L}\p{N}]/u.test(cleaned) ? cleaned : "";
+}
+
 export class LocalStt implements SttProvider {
   readonly inputRate = RATE_STT;
   private rec: SherpaRecognizer | null = null;
@@ -158,7 +175,7 @@ export class LocalStt implements SttProvider {
       const st = this.rec.createStream();
       st.acceptWaveform({ sampleRate: RATE_STT, samples: seg.samples });
       this.rec.decode(st);
-      const text = (this.rec.getResult(st).text || "").trim();
+      const text = cleanTranscript(this.rec.getResult(st).text || "");
       if (text) for (const cb of this.transcriptCbs) cb({ text, final: true });
     }
   }
