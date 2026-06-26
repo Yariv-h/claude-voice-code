@@ -18,3 +18,5 @@ cvc.config.jsonc
 *.log
 .vscode/
 .idea/
+.memory/
+.docs/

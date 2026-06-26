@@ -32,6 +32,8 @@ export interface GatewayDeps {
 export interface Gateway {
   start(): Promise<void>;
   stop(): Promise<void>;
+  /** Manually interrupt the current turn (stop TTS / Escape the agent → idle). */
+  interrupt(): void;
   /** Feed a mic frame (s16 mono at stt.inputRate). */
   feedAudio(frame: Int16Array): void;
   state(): VoiceState;
@@ -133,6 +135,9 @@ export function createGateway(deps: GatewayDeps): Gateway {
       deps.onAudioFlush?.();
       await deps.stt.stop();
       deps.onState?.("off");
+    },
+    interrupt() {
+      dispatch({ type: "stop" });
     },
     feedAudio(frame) {
       if (on) deps.stt.push(frame);

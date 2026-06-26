@@ -8,7 +8,8 @@ export type VoiceEvent =
   | { type: "speechStart" }
   | { type: "finalTranscript"; text: string }
   | { type: "replyReady"; text: string }
-  | { type: "ttsDone" };
+  | { type: "ttsDone" }
+  | { type: "stop" };
 
 export type GatewayEffect =
   | { type: "inject"; text: string } // send a turn to the agent
@@ -63,5 +64,16 @@ export function reduce(state: ActiveState, ev: VoiceEvent): Transition {
 
     case "ttsDone":
       return state === "speaking" ? t("idle") : t(state);
+
+    case "stop":
+      // Manual interrupt: stop talking / interrupt the agent, back to idle.
+      switch (state) {
+        case "thinking":
+          return t("idle", [{ type: "interruptAgent" }], true);
+        case "speaking":
+          return t("idle", [{ type: "cancelTts" }], true);
+        default:
+          return t("idle");
+      }
   }
 }

@@ -51,7 +51,7 @@ export function App() {
   const [thinking, setThinking] = useState("off");
   const [whisper, setWhisper] = useState("sherpa-onnx-whisper-small.en");
 
-  const { state, muted, transcript, notice, start, stop, reconnect, setMicMuted, micAnalyser, ttsAnalyser } =
+  const { state, muted, transcript, notice, start, stop, reconnect, interrupt, setMicMuted, micAnalyser, ttsAnalyser } =
     useVoice({ openMic: true });
 
   const t = THEMES[themeId];
@@ -194,6 +194,30 @@ export function App() {
               <line x1="12" y1="17" x2="12" y2="21" />
             </svg>
           </button>
+          {(state === "thinking" || state === "speaking") && (
+            <button
+              onClick={interrupt}
+              title="Stop the current turn"
+              style={{
+                fontFamily: mono,
+                fontSize: 11,
+                letterSpacing: ".12em",
+                textTransform: "uppercase",
+                color: c.text,
+                background: "transparent",
+                border: `1px solid ${c.border}`,
+                borderRadius: 9,
+                padding: "5px 12px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 7,
+              }}
+            >
+              <span style={{ width: 8, height: 8, background: c.accent, borderRadius: 2 }} />
+              Stop
+            </button>
+          )}
         </div>
       </div>
 

@@ -47,6 +47,7 @@ export interface UseVoice {
   start: (settings?: VoiceSettings) => Promise<void>;
   stop: () => void;
   reconnect: (settings?: VoiceSettings) => void;
+  interrupt: () => void;
   setMicMuted: (m: boolean) => void;
   micAnalyser: AnalyserRef;
   ttsAnalyser: AnalyserRef;
@@ -170,6 +171,10 @@ export function useVoice(opts: { openMic?: boolean } = {}): UseVoice {
     setMuted(m);
   }, []);
 
+  const interrupt = useCallback(() => {
+    wsRef.current?.send(JSON.stringify({ type: "stop" }));
+  }, []);
+
   // Tie the mic-enable to a stable `connected` boolean, NOT `state` — keying on
   // state re-runs on every server update and re-mutes the mic mid-utterance.
   const connected = state !== "off";
@@ -226,5 +231,5 @@ export function useVoice(opts: { openMic?: boolean } = {}): UseVoice {
 
   useEffect(() => () => stop(), [stop]);
 
-  return { state, muted, transcript, notice, start, stop, reconnect, setMicMuted, micAnalyser, ttsAnalyser };
+  return { state, muted, transcript, notice, start, stop, reconnect, interrupt, setMicMuted, micAnalyser, ttsAnalyser };
 }

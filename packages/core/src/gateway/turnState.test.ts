@@ -60,6 +60,16 @@ test("stale replyReady after barge-in is dropped (not in thinking)", () => {
   }
 });
 
+test("stop interrupts: thinking → idle + interruptAgent; speaking → idle + cancelTts", () => {
+  const a = reduce("thinking", { type: "stop" });
+  assert.equal(a.state, "idle");
+  assert.deepEqual(a.effects, [{ type: "interruptAgent" }]);
+  const b = reduce("speaking", { type: "stop" });
+  assert.equal(b.state, "idle");
+  assert.deepEqual(b.effects, [{ type: "cancelTts" }]);
+  assert.equal(reduce("idle", { type: "stop" }).state, "idle");
+});
+
 test("ttsDone outside speaking is a no-op", () => {
   for (const s of ["idle", "listening", "thinking"] as ActiveState[]) {
     assert.equal(reduce(s, { type: "ttsDone" }).state, s);

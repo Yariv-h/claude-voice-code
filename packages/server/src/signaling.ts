@@ -148,6 +148,8 @@ export function handleConnection(ws: WebSocket, baseConfig: Config): void {
         send({ type: "answer", sdp: await transport.handleOffer(msg.sdp) });
       } else if (msg.type === "ice" && msg.candidate) {
         await transport.addIceCandidate(msg.candidate);
+      } else if (msg.type === "stop") {
+        gateway?.interrupt();
       }
     } catch (e) {
       send({ type: "error", error: (e as Error).message });
