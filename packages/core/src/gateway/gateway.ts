@@ -75,7 +75,7 @@ export function createGateway(deps: GatewayDeps): Gateway {
     deps.bridge.inject(text);
     replyAbort = new AbortController();
     const signal = replyAbort.signal;
-    const reply = await deps.bridge.awaitReply(baseline, { signal });
+    const reply = await deps.bridge.awaitReply(baseline, { signal, match: text });
     if (signal.aborted) return; // user barged in
     dispatch({ type: "replyReady", text: reply ?? "" });
   }

@@ -73,6 +73,35 @@ test("awaitReply detects a brand-new session file", async () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
+test("awaitReply with match reads OUR session file, not the newest one", async () => {
+  const dir = tmp();
+  // Another Claude session sharing the dir — NEWER, with its own reply.
+  const other = join(dir, "other.jsonl");
+  writeFileSync(
+    other,
+    line({ type: "user", message: { role: "user", content: "unrelated dev message" } }) +
+      asst("a dev-session reply that must be ignored"),
+  );
+  utimesSync(other, new Date(9000), new Date(9000));
+  // Our session — OLDER, contains the message we injected + the real reply.
+  const ours = join(dir, "ours.jsonl");
+  writeFileSync(
+    ours,
+    line({ type: "user", message: { role: "user", content: "add a dark mode toggle" } }) +
+      asst("Done — added the toggle."),
+  );
+  utimesSync(ours, new Date(1000), new Date(1000));
+  const baseline = captureBaseline(dir); // newest = other
+  const r = await awaitReply(dir, baseline, {
+    match: "add a dark mode toggle",
+    pollMs: 15,
+    stableMs: 45,
+    deadlineMs: 2000,
+  });
+  assert.equal(r, "Done — added the toggle.");
+  rmSync(dir, { recursive: true, force: true });
+});
+
 test("awaitReply returns null on timeout with no new content", async () => {
   const dir = tmp();
   writeFileSync(join(dir, "s.jsonl"), asst("old"));

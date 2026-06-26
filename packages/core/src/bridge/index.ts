@@ -64,7 +64,7 @@ export function createBridge(config: Config, opts: CreateBridgeOpts = {}): Claud
     send: (text, o) => {
       const baseline = captureBaseline(projectDir);
       inject(target, text);
-      return awaitReply(projectDir, baseline, o);
+      return awaitReply(projectDir, baseline, { ...o, match: text });
     },
   };
 }
