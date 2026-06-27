@@ -83,28 +83,27 @@ function load(config: Config): SherpaOfflineTts {
  * and capped (~160 chars) — one giant chunk would delay all audio until it's done.
  */
 const MAX_CHUNK = 160;
+const FIRST_CHUNK = 64; // keep the first chunk tiny so audio starts in ~0.6s
 function splitForStreaming(text: string): string[] {
-  const chunks: string[] = [];
-  const sentences = text.match(/[^.!?\n]+[.!?]+|[^.!?\n]+$/g) ?? [text];
-  for (const raw of sentences) {
-    const s = raw.trim();
-    if (!s) continue;
-    if (s.length <= MAX_CHUNK) {
-      chunks.push(s);
-      continue;
+  // Split on clause boundaries (, ; : . ! ?), accumulate up to a cap — small for
+  // the first chunk (fast first audio), larger after (fewer synth calls).
+  const clauses = text
+    .split(/(?<=[,;:.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const out: string[] = [];
+  let buf = "";
+  for (const cl of clauses) {
+    const cap = out.length === 0 ? FIRST_CHUNK : MAX_CHUNK;
+    if (buf && (buf + " " + cl).length > cap) {
+      out.push(buf);
+      buf = cl;
+    } else {
+      buf = buf ? `${buf} ${cl}` : cl;
     }
-    let buf = "";
-    for (const part of s.split(/(?<=[,;:])\s+/)) {
-      if (buf && (buf + " " + part).length > MAX_CHUNK) {
-        chunks.push(buf.trim());
-        buf = part;
-      } else {
-        buf = buf ? `${buf} ${part}` : part;
-      }
-    }
-    if (buf.trim()) chunks.push(buf.trim());
   }
-  return chunks.length ? chunks : [text.trim()].filter(Boolean);
+  if (buf) out.push(buf);
+  return out.length ? out : [text.trim()].filter(Boolean);
 }
 
 export class LocalTts implements TtsProvider {

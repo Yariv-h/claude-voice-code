@@ -36,6 +36,7 @@ interface Hello {
   ttsVoiceId?: string;
   model?: string;
   thinking?: string;
+  concise?: boolean;
   whisper?: string;
   sessionName?: string;
   cwd?: string;
@@ -136,12 +137,19 @@ export function handleConnection(ws: WebSocket, baseConfig: Config): void {
         if (!stt) throw new Error('stt is "off" — set it to local or elevenlabs to use voice.');
         const tts = createTts(cfg);
         bridge = createBridge(cfg);
+        const h2 = msg as Hello;
+        const turnPrefix = [
+          thinkPrefix(h2.thinking),
+          h2.concise ? "Reply briefly — 1 to 3 short sentences, no markdown; this is a voice conversation." : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
         gateway = createGateway({
           stt,
           tts,
           bridge,
           config: cfg,
-          thinkingPrefix: thinkPrefix((msg as Hello).thinking),
+          thinkingPrefix: turnPrefix || undefined,
           onState: (s) => send({ type: "state", state: s }),
           onUserText: (text) => {
             console.error(`[stt] "${text}"`);

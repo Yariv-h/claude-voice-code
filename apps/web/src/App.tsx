@@ -49,6 +49,7 @@ export function App() {
   const [model, setModel] = useState("default");
   const [speaker, setSpeaker] = useState(0);
   const [thinking, setThinking] = useState("off");
+  const [concise, setConcise] = useState(true);
   const [whisper, setWhisper] = useState("sherpa-onnx-whisper-small.en");
   const [sessionName, setSessionName] = useState("voice");
   const [cwd, setCwd] = useState("");
@@ -69,6 +70,7 @@ export function App() {
     kokoroSpeaker: speaker,
     model,
     thinking,
+    concise,
     whisper,
     sessionName,
     ...(cwd ? { cwd } : {}),
@@ -93,6 +95,10 @@ export function App() {
   const changeThinking = (th: string) => {
     setThinking(th);
     if (connected) reconnect(settingsWith({ thinking: th }));
+  };
+  const changeConcise = (v: boolean) => {
+    setConcise(v);
+    if (connected) reconnect(settingsWith({ concise: v }));
   };
   const changeWhisper = (w: string) => {
     setWhisper(w);
@@ -390,6 +396,15 @@ export function App() {
 
         <DockGroup label="Thinking">
           <Picker value={thinking} onChange={changeThinking} options={THINKING} c={c} />
+        </DockGroup>
+
+        <DockGroup label="Brief">
+          <Segmented
+            options={[{ v: "on", label: "On" }, { v: "off", label: "Off" }]}
+            value={concise ? "on" : "off"}
+            onChange={(v) => changeConcise(v === "on")}
+            c={c}
+          />
         </DockGroup>
 
         <DockGroup label="Engine">

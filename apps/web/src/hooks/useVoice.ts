@@ -20,6 +20,7 @@ export interface VoiceSettings {
   ttsVoiceId?: string;
   model?: string;
   thinking?: string;
+  concise?: boolean;
   whisper?: string;
   sessionName?: string;
   cwd?: string;
