@@ -50,6 +50,7 @@ export function App() {
   const [speaker, setSpeaker] = useState(0);
   const [thinking, setThinking] = useState("off");
   const [concise, setConcise] = useState(true);
+  const [guard, setGuard] = useState(false);
   const [whisper, setWhisper] = useState("sherpa-onnx-whisper-small.en");
   const [sessionName, setSessionName] = useState("voice");
   const [cwd, setCwd] = useState("");
@@ -71,6 +72,7 @@ export function App() {
     model,
     thinking,
     concise,
+    guard,
     whisper,
     sessionName,
     ...(cwd ? { cwd } : {}),
@@ -99,6 +101,10 @@ export function App() {
   const changeConcise = (v: boolean) => {
     setConcise(v);
     if (connected) reconnect(settingsWith({ concise: v }));
+  };
+  const changeGuard = (v: boolean) => {
+    setGuard(v);
+    if (connected) reconnect(settingsWith({ guard: v, restartSession: true }));
   };
   const changeWhisper = (w: string) => {
     setWhisper(w);
@@ -403,6 +409,15 @@ export function App() {
             options={[{ v: "on", label: "On" }, { v: "off", label: "Off" }]}
             value={concise ? "on" : "off"}
             onChange={(v) => changeConcise(v === "on")}
+            c={c}
+          />
+        </DockGroup>
+
+        <DockGroup label="Guard">
+          <Segmented
+            options={[{ v: "on", label: "On" }, { v: "off", label: "Off" }]}
+            value={guard ? "on" : "off"}
+            onChange={(v) => changeGuard(v === "on")}
             c={c}
           />
         </DockGroup>

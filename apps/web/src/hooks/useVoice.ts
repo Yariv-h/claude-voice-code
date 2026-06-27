@@ -26,6 +26,7 @@ export interface VoiceSettings {
   cwd?: string;
   resume?: string;
   clear?: boolean;
+  guard?: boolean;
   restartSession?: boolean;
 }
 

@@ -3,9 +3,9 @@
 
 import { createServer as createHttpServer } from "node:http";
 import { WebSocketServer } from "ws";
-import { listCvcSessions, resolveSocket, type Config } from "@cvc/core";
+import { ConfirmBridge, listCvcSessions, resolveSocket, type Config } from "@cvc/core";
 import { staticHandler } from "./http";
-import { handleConnection } from "./signaling";
+import { CONFIRM_SOCKET, getActiveGateway, handleConnection } from "./signaling";
 
 export * from "./transport";
 
@@ -27,6 +27,12 @@ export function createServer(config: Config): { start(): Promise<RunningServer> 
         staticHandler(req, res);
       });
       const wss = new WebSocketServer({ noServer: true });
+
+      // Spoken tool-confirmation socket (guard mode); routes to the active session.
+      const confirm = new ConfirmBridge(CONFIRM_SOCKET, (reason) =>
+        getActiveGateway()?.confirm(reason) ?? Promise.resolve("deny"),
+      );
+      void confirm.start();
 
       http.on("upgrade", (req, socket, head) => {
         let pathname = "";
@@ -50,6 +56,7 @@ export function createServer(config: Config): { start(): Promise<RunningServer> 
             stop: () =>
               new Promise((r) => {
                 wss.close();
+                confirm.stop();
                 http.close(() => r());
               }),
           });

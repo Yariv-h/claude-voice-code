@@ -5,6 +5,10 @@
 // The gateway is built on `hello` so per-connection settings (engine, voice,
 // Claude model) take effect; changing a setting = the client reconnects.
 
+import { mkdirSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { WebSocket } from "ws";
 import {
   bufferToInt16,
@@ -42,6 +46,7 @@ interface Hello {
   cwd?: string;
   resume?: string;
   clear?: boolean;
+  guard?: boolean;
   restartSession?: boolean;
 }
 
@@ -50,6 +55,37 @@ const isSide = (v: unknown): v is Side => v === "local" || v === "elevenlabs" ||
 // Claude Code's extended-thinking triggers, by UI level.
 const THINK: Record<string, string> = { think: "Think.", "think-hard": "Think hard.", ultra: "Ultrathink." };
 const thinkPrefix = (level?: string): string | undefined => (level && THINK[level] ? THINK[level] : undefined);
+
+// The most-recent voice connection — the confirm socket routes spoken yes/no here.
+export const CONFIRM_SOCKET = join(tmpdir(), "cvc-voice-confirm.sock");
+let activeGateway: Gateway | null = null;
+export const getActiveGateway = (): Gateway | null => activeGateway;
+
+// Generate a Claude settings file (env + PreToolUse hook) for guard mode.
+function writeGuardSettings(): string {
+  const dir = join(homedir(), ".cache", "claude-voice-code");
+  mkdirSync(dir, { recursive: true });
+  const hook = fileURLToPath(new URL("../scripts/voice-guard-hook.mjs", import.meta.url));
+  const client = fileURLToPath(new URL("../scripts/voice-guard-confirm-client.mjs", import.meta.url));
+  const settings = {
+    env: {
+      VOICE_GUARD_ENABLED: "1",
+      VOICE_GUARD_CONFIRM_SOCKET: CONFIRM_SOCKET,
+      VOICE_GUARD_CONFIRM_CMD: client,
+    },
+    hooks: {
+      PreToolUse: [
+        {
+          matcher: "Bash|Edit|Write|MultiEdit|NotebookEdit|mcp__.*",
+          hooks: [{ type: "command", command: `node ${JSON.stringify(hook)}` }],
+        },
+      ],
+    },
+  };
+  const p = join(dir, "voice-guard-settings.json");
+  writeFileSync(p, JSON.stringify(settings, null, 2));
+  return p;
+}
 
 /** Merge per-connection UI settings from the hello message onto the base config. */
 function applyHello(base: Config, m: Hello): Config {
@@ -74,6 +110,12 @@ function applyHello(base: Config, m: Hello): Config {
   if (typeof m.cwd === "string" && m.cwd.startsWith("/")) cfg.tmux.cwd = m.cwd;
   if (typeof m.whisper === "string" && /^sherpa-onnx-whisper-[\w.-]+$/.test(m.whisper)) {
     cfg.models.whisper = m.whisper;
+  }
+  if (m.guard) {
+    const bin = cfg.claudeBin.includes("--dangerously-skip-permissions")
+      ? cfg.claudeBin
+      : `${cfg.claudeBin} --dangerously-skip-permissions`;
+    cfg.claudeBin = `${bin} --settings ${writeGuardSettings()}`;
   }
   return cfg;
 }
@@ -162,6 +204,7 @@ export function handleConnection(ws: WebSocket, baseConfig: Config): void {
           },
           onAudioFlush: () => transport.clearAudio(),
         });
+        activeGateway = gateway;
         await gateway.start();
         if (msg.clear) bridge.clear();
       } else if (msg.type === "offer" && msg.sdp) {
@@ -181,5 +224,6 @@ export function handleConnection(ws: WebSocket, baseConfig: Config): void {
   ws.on("close", () => {
     transport.close();
     void gateway?.stop();
+    if (gateway && activeGateway === gateway) activeGateway = null;
   });
 }

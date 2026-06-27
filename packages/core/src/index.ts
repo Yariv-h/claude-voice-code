@@ -15,4 +15,5 @@ export * from "./stt";
 export * from "./gateway";
 export * from "./models";
 export * from "./summarize";
+export * from "./confirm";
 export { parseJsonc } from "./util/jsonc";

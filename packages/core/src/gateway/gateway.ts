@@ -7,6 +7,7 @@ import type { Config } from "../config";
 import type { SttProvider } from "../stt";
 import type { TtsProvider } from "../tts";
 import { condenseForSpeech } from "../summarize";
+import { classifyYesNo, type ConfirmDecision } from "../confirm";
 import type { VoiceState } from "../types";
 import { reduce, type ActiveState, type GatewayEffect, type VoiceEvent } from "./turnState";
 
@@ -34,6 +35,8 @@ export interface Gateway {
   stop(): Promise<void>;
   /** Manually interrupt the current turn (stop TTS / Escape the agent → idle). */
   interrupt(): void;
+  /** Speak a tool-use confirmation prompt and await a spoken yes/no (fail-closed). */
+  confirm(reason: string): Promise<ConfirmDecision>;
   /** Feed a mic frame (s16 mono at stt.inputRate). */
   feedAudio(frame: Int16Array): void;
   state(): VoiceState;
@@ -44,6 +47,7 @@ export function createGateway(deps: GatewayDeps): Gateway {
   let on = false;
   let replyAbort: AbortController | null = null;
   let ttsAbort: AbortController | null = null;
+  let confirmAnswer: ((text: string) => void) | null = null;
 
   function dispatch(ev: VoiceEvent): void {
     if (!on) return;
@@ -117,12 +121,51 @@ export function createGateway(deps: GatewayDeps): Gateway {
     dispatch({ type: "ttsDone" });
   }
 
+  const CONFIRM_TIMEOUT_MS = 30_000;
+  async function speakConfirm(text: string): Promise<void> {
+    if (!deps.tts) return;
+    const ac = new AbortController();
+    try {
+      await deps.tts.synthesize(text, (c) => deps.onAudio?.(c.pcm, c.sampleRate), ac.signal);
+    } catch {
+      /* ignore */
+    }
+  }
+  function confirm(reason: string): Promise<ConfirmDecision> {
+    if (!on) return Promise.resolve("deny");
+    return new Promise((resolve) => {
+      let settled = false;
+      const done = (d: ConfirmDecision) => {
+        if (settled) return;
+        settled = true;
+        confirmAnswer = null;
+        clearTimeout(timer);
+        resolve(d);
+      };
+      const timer = setTimeout(() => done("deny"), CONFIRM_TIMEOUT_MS); // fail-closed
+      confirmAnswer = (text) => {
+        const yn = classifyYesNo(text);
+        if (yn === "yes") done("allow");
+        else if (yn === "no") done("deny");
+        else void speakConfirm("Sorry — please say yes, or no.");
+      };
+      void speakConfirm(`Heads up — Claude wants to ${reason}. Say yes to allow, or no to deny.`);
+    });
+  }
+
   return {
     async start() {
       await deps.stt.start();
       deps.stt.onSpeechStart(() => dispatch({ type: "speechStart" }));
       deps.stt.onTranscript((tr) => {
-        if (tr.final && tr.text.trim()) dispatch({ type: "finalTranscript", text: tr.text.trim() });
+        if (!tr.final || !tr.text.trim()) return;
+        const text = tr.text.trim();
+        // While a tool-confirmation is pending, the next utterance is the answer.
+        if (confirmAnswer) {
+          confirmAnswer(text);
+          return;
+        }
+        dispatch({ type: "finalTranscript", text });
       });
       on = true;
       st = "idle";
@@ -139,6 +182,7 @@ export function createGateway(deps: GatewayDeps): Gateway {
     interrupt() {
       dispatch({ type: "stop" });
     },
+    confirm,
     feedAudio(frame) {
       if (on) deps.stt.push(frame);
     },
