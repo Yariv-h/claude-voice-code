@@ -50,8 +50,11 @@ export function App() {
   const [speaker, setSpeaker] = useState(0);
   const [thinking, setThinking] = useState("off");
   const [whisper, setWhisper] = useState("sherpa-onnx-whisper-small.en");
+  const [sessionName, setSessionName] = useState("voice");
+  const [cwd, setCwd] = useState("");
+  const [sessions, setSessions] = useState<{ name: string; cwd: string }[]>([]);
 
-  const { state, muted, transcript, notice, start, stop, reconnect, interrupt, setMicMuted, micAnalyser, ttsAnalyser } =
+  const { state, muted, transcript, notice, start, stop, reconnect, interrupt, clearConversation, setMicMuted, micAnalyser, ttsAnalyser } =
     useVoice({ openMic: true });
 
   const t = THEMES[themeId];
@@ -67,6 +70,8 @@ export function App() {
     model,
     thinking,
     whisper,
+    sessionName,
+    ...(cwd ? { cwd } : {}),
     ...over,
   });
   const onMic = () => {
@@ -93,6 +98,19 @@ export function App() {
     setWhisper(w);
     if (connected) reconnect(settingsWith({ whisper: w }));
   };
+  const switchSession = (name: string) => {
+    setSessionName(name);
+    const found = sessions.find((s) => s.name === `cvc-${name}`);
+    if (connected) reconnect(settingsWith({ sessionName: name, ...(found?.cwd ? { cwd: found.cwd } : {}) }));
+  };
+  const newSession = () => {
+    const name = window.prompt("New session name (letters, numbers, dashes):", "");
+    if (!name || !/^[\w-]{1,40}$/.test(name)) return;
+    const folder = (window.prompt("Project folder (absolute path; blank = current):", cwd || "") || "").trim();
+    setSessionName(name);
+    if (folder) setCwd(folder);
+    if (connected) reconnect(settingsWith({ sessionName: name, ...(folder ? { cwd: folder } : {}) }));
+  };
 
   // Auto-scroll the conversation to the latest line.
   const convRef = useRef<HTMLDivElement>(null);
@@ -101,9 +119,35 @@ export function App() {
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [transcript, state]);
 
+  // Keep the active-session list fresh (updates after connect / new session).
+  useEffect(() => {
+    let live = true;
+    fetch("/api/sessions")
+      .then((r) => r.json())
+      .then((d) => live && setSessions(d.sessions ?? []))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [state]);
+
   const showHint = state === "off" || (state === "idle" && transcript.length === 0);
   let lastAgent = -1;
   transcript.forEach((l, i) => l.role === "agent" && (lastAgent = i));
+
+  const sessionOptions = Array.from(
+    new Set([sessionName, ...sessions.map((s) => s.name.replace(/^cvc-/, ""))]),
+  ).map((n) => ({ v: n, label: n }));
+  const pill: CSSProperties = {
+    fontFamily: mono,
+    fontSize: 11,
+    color: c.dim,
+    background: "transparent",
+    border: `1px solid ${c.border}`,
+    borderRadius: 6,
+    padding: "3px 8px",
+    cursor: "pointer",
+  };
 
   return (
     <div
@@ -147,6 +191,13 @@ export function App() {
             <div style={{ width: 9, height: 9, borderRadius: "50%", background: connected ? "#3ad07f" : c.dim, boxShadow: connected ? "0 0 10px #3ad07f" : "none", animation: connected ? "softpulse 2.4s ease-in-out infinite" : "none" }} />
             <span style={{ fontWeight: 600, fontSize: 15, letterSpacing: "-.01em" }}>Claude Code</span>
             <span style={{ fontFamily: mono, fontSize: 11, letterSpacing: ".14em", textTransform: "uppercase", color: c.dim, padding: "3px 8px", border: `1px solid ${c.border}`, borderRadius: 6 }}>voice</span>
+            <Picker value={sessionName} onChange={switchSession} options={sessionOptions} c={c} />
+            <button onClick={newSession} title="New session" style={pill}>＋ new</button>
+            {connected && (
+              <button onClick={clearConversation} title="New conversation (/clear)" style={pill}>
+                clear
+              </button>
+            )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: mono, fontSize: 11, color: c.dim }}>
             <span style={{ opacity: 0.7 }}>{connected ? "connected" : "offline"}</span>

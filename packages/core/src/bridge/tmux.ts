@@ -157,3 +157,22 @@ export function ensureSession(opts: EnsureOpts): EnsureResult {
 export function killSession(session: string, socket: string | null): void {
   tryRun(["kill-session", "-t", session], socket);
 }
+
+/** Active cvc-managed sessions (name + cwd) on this socket. */
+export function listCvcSessions(socket: string | null): { name: string; cwd: string }[] {
+  let out: string;
+  try {
+    out = run(["list-sessions", "-F", "#{session_name}\t#{pane_current_path}"], socket);
+  } catch {
+    return [];
+  }
+  return out
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => {
+      const [name, cwd = ""] = l.split("\t");
+      return { name, cwd };
+    })
+    .filter((s) => s.name.startsWith("cvc-"));
+}

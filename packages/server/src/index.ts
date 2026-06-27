@@ -3,7 +3,7 @@
 
 import { createServer as createHttpServer } from "node:http";
 import { WebSocketServer } from "ws";
-import type { Config } from "@cvc/core";
+import { listCvcSessions, resolveSocket, type Config } from "@cvc/core";
 import { staticHandler } from "./http";
 import { handleConnection } from "./signaling";
 
@@ -17,7 +17,15 @@ export interface RunningServer {
 export function createServer(config: Config): { start(): Promise<RunningServer> } {
   return {
     start() {
-      const http = createHttpServer(staticHandler);
+      const http = createHttpServer((req, res) => {
+        if (req.url && req.url.split("?")[0] === "/api/sessions") {
+          const sessions = listCvcSessions(resolveSocket(config.tmux.socket));
+          res.writeHead(200, { "content-type": "application/json" });
+          res.end(JSON.stringify({ sessions, active: config.tmux.session }));
+          return;
+        }
+        staticHandler(req, res);
+      });
       const wss = new WebSocketServer({ noServer: true });
 
       http.on("upgrade", (req, socket, head) => {

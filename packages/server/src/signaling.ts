@@ -20,6 +20,7 @@ import {
   resolveSocket,
   rms16,
   whisperEncoderPath,
+  type ClaudeBridge,
   type Config,
   type Gateway,
   type Side,
@@ -36,6 +37,10 @@ interface Hello {
   model?: string;
   thinking?: string;
   whisper?: string;
+  sessionName?: string;
+  cwd?: string;
+  resume?: string;
+  clear?: boolean;
   restartSession?: boolean;
 }
 
@@ -58,9 +63,14 @@ function applyHello(base: Config, m: Hello): Config {
   if (isSide(m.tts)) cfg.tts = m.tts;
   if (typeof m.kokoroSpeaker === "number") cfg.voice.kokoroSpeaker = m.kokoroSpeaker;
   if (typeof m.ttsVoiceId === "string" && m.ttsVoiceId) cfg.elevenlabs.ttsVoiceId = m.ttsVoiceId;
-  if (typeof m.model === "string" && m.model && m.model !== "default") {
-    cfg.claudeBin = `${base.claudeBin} --model ${m.model}`;
+  let bin = base.claudeBin;
+  if (typeof m.model === "string" && m.model && m.model !== "default") bin += ` --model ${m.model}`;
+  if (typeof m.resume === "string" && /^[\w-]{6,}$/.test(m.resume)) bin += ` --resume ${m.resume}`;
+  cfg.claudeBin = bin;
+  if (typeof m.sessionName === "string" && /^[\w-]{1,40}$/.test(m.sessionName)) {
+    cfg.tmux.session = `cvc-${m.sessionName}`;
   }
+  if (typeof m.cwd === "string" && m.cwd.startsWith("/")) cfg.tmux.cwd = m.cwd;
   if (typeof m.whisper === "string" && /^sherpa-onnx-whisper-[\w.-]+$/.test(m.whisper)) {
     cfg.models.whisper = m.whisper;
   }
@@ -78,6 +88,7 @@ export function handleConnection(ws: WebSocket, baseConfig: Config): void {
 
   const transport = new WebRTCTransport(send);
   let gateway: Gateway | null = null;
+  let bridge: ClaudeBridge | null = null;
   let started = false;
   let dbg = 0;
 
@@ -107,7 +118,7 @@ export function handleConnection(ws: WebSocket, baseConfig: Config): void {
         if (started) return;
         started = true;
         const cfg = applyHello(baseConfig, msg as Hello);
-        if (msg.restartSession) {
+        if (msg.restartSession || msg.resume) {
           try {
             killSession(cfg.tmux.session, resolveSocket(cfg.tmux.socket));
           } catch {
@@ -124,7 +135,7 @@ export function handleConnection(ws: WebSocket, baseConfig: Config): void {
         const stt = createStt(cfg);
         if (!stt) throw new Error('stt is "off" — set it to local or elevenlabs to use voice.');
         const tts = createTts(cfg);
-        const bridge = createBridge(cfg);
+        bridge = createBridge(cfg);
         gateway = createGateway({
           stt,
           tts,
@@ -144,12 +155,15 @@ export function handleConnection(ws: WebSocket, baseConfig: Config): void {
           onAudioFlush: () => transport.clearAudio(),
         });
         await gateway.start();
+        if (msg.clear) bridge.clear();
       } else if (msg.type === "offer" && msg.sdp) {
         send({ type: "answer", sdp: await transport.handleOffer(msg.sdp) });
       } else if (msg.type === "ice" && msg.candidate) {
         await transport.addIceCandidate(msg.candidate);
       } else if (msg.type === "stop") {
         gateway?.interrupt();
+      } else if (msg.type === "clear") {
+        bridge?.clear();
       }
     } catch (e) {
       send({ type: "error", error: (e as Error).message });

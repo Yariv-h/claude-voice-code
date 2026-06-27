@@ -9,6 +9,7 @@ export default defineConfig({
     port: 5174,
     proxy: {
       "/api/voice/signal": { target: "ws://localhost:5173", ws: true },
+      "/api/sessions": "http://localhost:5173",
       "/health": "http://localhost:5173",
     },
   },

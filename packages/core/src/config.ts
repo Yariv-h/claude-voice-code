@@ -86,7 +86,7 @@ export function defaultConfig(): Config {
     },
     vad: { windowSize: 512, threshold: 0.5, minSilenceSec: 0.5, minSpeechSec: 0.2, maxSpeechSec: 20 },
     voice: { kokoroSpeaker: 0, speed: 1.0 },
-    tmux: { session: "claude-voice", cwd: null, attach: null, socket: null },
+    tmux: { session: "cvc-voice", cwd: null, attach: null, socket: null },
     reply: { verbatimMaxChars: 220, summarize: false },
     server: { port: 5173, host: "127.0.0.1" },
   };

@@ -25,6 +25,8 @@ export interface ClaudeBridge {
   interrupt(): void;
   /** Send a raw key/keyspec to the pane. */
   sendKey(key: string): void;
+  /** Reset the conversation (Claude Code /clear). */
+  clear(): void;
   /** Snapshot transcript state before injecting. */
   captureBaseline(): TurnBaseline;
   /** Wait for the reply to a turn started at `baseline`. */
@@ -59,6 +61,7 @@ export function createBridge(config: Config, opts: CreateBridgeOpts = {}): Claud
     inject: (text) => inject(target, text),
     interrupt: () => interrupt(target),
     sendKey: (key) => sendKey(target, key),
+    clear: () => inject(target, "/clear"),
     captureBaseline: () => captureBaseline(projectDir),
     awaitReply: (baseline, o) => awaitReply(projectDir, baseline, o),
     send: (text, o) => {
