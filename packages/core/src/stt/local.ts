@@ -114,10 +114,13 @@ function makeVad(config: Config): SherpaVad {
  */
 export function cleanTranscript(raw: string): string {
   const cleaned = raw
-    .replace(/\[[^\]]*\]/g, " ")
-    .replace(/\([^)]*\)/g, " ")
-    .replace(/\*[^*]*\*/g, " ")
-    .replace(/♪[^♪]*♪?/g, " ")
+    .replace(/\[[^\]]*\]/g, " ") // [BLANK_AUDIO], [ Silence ]
+    .replace(/\([^)]*\)/g, " ") // (buzzing), (laughs)
+    .replace(/\*[^*]*\*/g, " ") // *door creaks*
+    .replace(/♪[^♪]*♪?/g, " ") // ♪ music ♪
+    // Whisper's greedy decode can truncate a noise token mid-word with no closer
+    // (e.g. "[BL", "[BLANK_AUD") — strip an unterminated bracket/paren run too.
+    .replace(/[[(][^\])]*$/, " ")
     .replace(/\s+/g, " ")
     .trim();
   return /[\p{L}\p{N}]/u.test(cleaned) ? cleaned : "";
