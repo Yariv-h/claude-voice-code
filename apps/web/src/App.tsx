@@ -56,7 +56,7 @@ export function App() {
   const [cwd, setCwd] = useState("");
   const [sessions, setSessions] = useState<{ name: string; cwd: string }[]>([]);
 
-  const { state, muted, transcript, notice, start, stop, reconnect, interrupt, clearConversation, setMicMuted, micAnalyser, ttsAnalyser } =
+  const { state, muted, transcript, notice, metrics, start, stop, reconnect, interrupt, clearConversation, setMicMuted, micAnalyser, ttsAnalyser } =
     useVoice({ openMic: true });
 
   const t = THEMES[themeId];
@@ -236,6 +236,15 @@ export function App() {
               <div style={{ fontSize: 11.5, color: "#e6a06a", marginTop: 8, fontFamily: mono, maxWidth: 440, lineHeight: 1.5 }}>
                 ⚠ Guard on — Claude runs with <b>--dangerously-skip-permissions</b>; dangerous tools (rm, git push, any
                 integration, …) require your spoken yes/no.
+              </div>
+            )}
+            {metrics && connected && (
+              <div
+                title="Last turn — STT decode · Claude time-to-first-text · time-to-first-audio · total"
+                style={{ fontSize: 11, color: c.dim, marginTop: 8, fontFamily: mono, letterSpacing: ".02em", opacity: 0.85 }}
+              >
+                ⏱ STT {(metrics.sttMs / 1000).toFixed(1)}s · think {(metrics.thinkMs / 1000).toFixed(1)}s · audio{" "}
+                {(metrics.firstAudioMs / 1000).toFixed(1)}s · total {(metrics.totalMs / 1000).toFixed(1)}s
               </div>
             )}
           </div>

@@ -10,6 +10,8 @@ export type VoiceState = "off" | "idle" | "listening" | "thinking" | "speaking";
 export interface Transcript {
   text: string;
   final: boolean;
+  /** STT decode/transcribe time in ms (for the latency HUD). */
+  decodeMs?: number;
 }
 
 // Audio invariant across module boundaries: signed 16-bit PCM, mono. Sample rate

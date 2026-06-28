@@ -73,6 +73,7 @@ export class ElevenLabsStt implements SttProvider {
       const form = new FormData();
       form.append("model_id", this.config.elevenlabs.sttModel);
       form.append("file", new Blob([pcm16ToWav(audio, this.inputRate)], { type: "audio/wav" }), "audio.wav");
+      const t0 = Date.now();
       const res = await fetch(`${EL_BASE}/speech-to-text`, {
         method: "POST",
         headers: { "xi-api-key": this.config.elevenlabs.apiKey },
@@ -84,7 +85,8 @@ export class ElevenLabsStt implements SttProvider {
       }
       const data = (await res.json()) as { text?: string };
       const text = (data.text || "").trim();
-      if (text) for (const cb of this.transcriptCbs) cb({ text, final: true });
+      const decodeMs = Date.now() - t0;
+      if (text) for (const cb of this.transcriptCbs) cb({ text, final: true, decodeMs });
     } catch (e) {
       console.error("[voice] ElevenLabs STT error:", (e as Error).message);
     }

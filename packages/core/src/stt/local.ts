@@ -181,9 +181,11 @@ export class LocalStt implements SttProvider {
       this.vad.pop();
       const st = this.rec.createStream();
       st.acceptWaveform({ sampleRate: RATE_STT, samples: seg.samples });
+      const t0 = Date.now();
       this.rec.decode(st);
       const text = cleanTranscript(this.rec.getResult(st).text || "");
-      if (text) for (const cb of this.transcriptCbs) cb({ text, final: true });
+      const decodeMs = Date.now() - t0;
+      if (text) for (const cb of this.transcriptCbs) cb({ text, final: true, decodeMs });
     }
   }
 

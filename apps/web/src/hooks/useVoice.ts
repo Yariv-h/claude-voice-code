@@ -36,7 +36,15 @@ type ServerMsg =
   | { type: "state"; state: VoiceState }
   | { type: "transcript"; role: "user" | "agent"; text: string; partial?: boolean }
   | { type: "notice"; text: string }
+  | { type: "metrics"; sttMs: number; thinkMs: number; firstAudioMs: number; totalMs: number }
   | { type: "error"; error: string };
+
+export interface Metrics {
+  sttMs: number;
+  thinkMs: number;
+  firstAudioMs: number;
+  totalMs: number;
+}
 
 function mergeTranscript(prev: TranscriptLine[], m: { role: "user" | "agent"; text: string; partial?: boolean }): TranscriptLine[] {
   const line: TranscriptLine = { role: m.role, text: m.text, partial: m.partial };
@@ -50,6 +58,7 @@ export interface UseVoice {
   muted: boolean;
   transcript: TranscriptLine[];
   notice: string;
+  metrics: Metrics | null;
   start: (settings?: VoiceSettings) => Promise<void>;
   stop: () => void;
   reconnect: (settings?: VoiceSettings) => void;
@@ -66,6 +75,7 @@ export function useVoice(opts: { openMic?: boolean } = {}): UseVoice {
   const [muted, setMuted] = useState(!openMic);
   const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
   const [notice, setNotice] = useState("");
+  const [metrics, setMetrics] = useState<Metrics | null>(null);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -135,6 +145,8 @@ export function useVoice(opts: { openMic?: boolean } = {}): UseVoice {
         setTranscript((p) => mergeTranscript(p, msg));
       } else if (msg.type === "notice") {
         setNotice(msg.text);
+      } else if (msg.type === "metrics") {
+        setMetrics(msg);
       } else if (msg.type === "error") {
         setNotice("");
         console.error("[voice] server:", msg.error);
@@ -247,6 +259,7 @@ export function useVoice(opts: { openMic?: boolean } = {}): UseVoice {
     muted,
     transcript,
     notice,
+    metrics,
     start,
     stop,
     reconnect,

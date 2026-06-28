@@ -12,6 +12,17 @@ import type { TtsProvider } from "../tts";
 import type { VoiceState } from "../types";
 import { reduce, type ActiveState, type GatewayEffect, type VoiceEvent } from "./turnState";
 
+export interface TurnMetrics {
+  /** STT decode/transcribe (ms). */
+  sttMs: number;
+  /** Inject → first reply text — Claude's time-to-first-content (ms). */
+  thinkMs: number;
+  /** Inject → first audio chunk (ms). */
+  firstAudioMs: number;
+  /** Inject → turn done (ms). */
+  totalMs: number;
+}
+
 export interface GatewayDeps {
   stt: SttProvider;
   tts: TtsProvider | null;
@@ -29,6 +40,8 @@ export interface GatewayDeps {
   onAudio?(pcm: Int16Array, sampleRate: number): void;
   /** Barge-in: drop any queued/playing audio immediately. */
   onAudioFlush?(): void;
+  /** Per-turn latency breakdown (for the HUD). */
+  onMetrics?(m: TurnMetrics): void;
 }
 
 export interface Gateway {
@@ -48,6 +61,8 @@ export function createGateway(deps: GatewayDeps): Gateway {
   let on = false;
   let turnAbort: AbortController | null = null;
   let confirmAnswer: ((text: string) => void) | null = null;
+  let lastSttMs = 0;
+  let metrics: { t0: number; think?: number; firstAudio?: number } | null = null;
 
   // ── TTS queue: synthesize queued reply chunks in order, streaming audio out.
   // Each chunk carries its turn's signal so barge-in only cancels that turn. ──
@@ -66,7 +81,9 @@ export function createGateway(deps: GatewayDeps): Gateway {
         await deps.tts.synthesize(
           speak,
           (c) => {
-            if (!item.signal.aborted) deps.onAudio?.(c.pcm, c.sampleRate);
+            if (item.signal.aborted) return;
+            if (metrics && metrics.firstAudio === undefined) metrics.firstAudio = Date.now() - metrics.t0;
+            deps.onAudio?.(c.pcm, c.sampleRate);
           },
           item.signal,
         );
@@ -135,6 +152,8 @@ export function createGateway(deps: GatewayDeps): Gateway {
     deps.bridge.inject(injected);
     turnAbort = new AbortController();
     const sig = turnAbort.signal;
+    const sttMs = lastSttMs;
+    metrics = { t0: Date.now() };
     let started = false;
     let fullSoFar = "";
     const full = await deps.bridge.streamReply({
@@ -145,18 +164,34 @@ export function createGateway(deps: GatewayDeps): Gateway {
         fullSoFar = soFar;
         if (!started) {
           started = true;
+          if (metrics) metrics.think = Date.now() - metrics.t0;
           setState("speaking"); // first sentence → start speaking
         }
         deps.onAgentText?.(soFar, true);
         enqueueSpeak(chunk, sig);
       },
     });
-    if (sig.aborted) return;
+    if (sig.aborted) {
+      metrics = null;
+      return;
+    }
     const reply = (full || fullSoFar).trim();
     if (reply) deps.onAgentText?.(reply, false);
     await waitDrain(sig);
-    if (sig.aborted) return;
+    if (sig.aborted) {
+      metrics = null;
+      return;
+    }
     setState("idle");
+    if (metrics) {
+      deps.onMetrics?.({
+        sttMs,
+        thinkMs: metrics.think ?? 0,
+        firstAudioMs: metrics.firstAudio ?? 0,
+        totalMs: Date.now() - metrics.t0,
+      });
+      metrics = null;
+    }
   }
 
   // ── spoken tool-use confirmation (Guard mode) ──
@@ -204,6 +239,7 @@ export function createGateway(deps: GatewayDeps): Gateway {
           confirmAnswer(text);
           return;
         }
+        lastSttMs = tr.decodeMs ?? 0;
         dispatch({ type: "finalTranscript", text });
       });
       on = true;
