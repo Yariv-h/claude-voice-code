@@ -9,7 +9,10 @@ import {
   captureBaseline,
   newestSessionFile,
   projectDirFor,
+  streamReply,
 } from "./turnReader";
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const tmp = () => mkdtempSync(join(tmpdir(), "cvc-tr-"));
 const line = (o: unknown) => JSON.stringify(o) + "\n";
@@ -99,6 +102,36 @@ test("awaitReply with match reads OUR session file, not the newest one", async (
     deadlineMs: 2000,
   });
   assert.equal(r, "Done — added the toggle.");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("streamReply emits whole sentences as they appear, flushes tail on idle", async () => {
+  const dir = tmp();
+  const f = join(dir, "s.jsonl");
+  const userLine = line({ type: "user", message: { role: "user", content: "do the thing" } });
+  writeFileSync(f, userLine);
+  const grow = (txt: string) => writeFileSync(f, userLine + asst(txt));
+
+  const chunks: string[] = [];
+  const p = streamReply(dir, {
+    match: "do the thing",
+    pollMs: 15,
+    idleMs: 120,
+    deadlineMs: 4000,
+    onText: (c) => chunks.push(c),
+  });
+  await sleep(45);
+  grow("First sentence here.");
+  await sleep(50);
+  grow("First sentence here. Second one too!");
+  await sleep(50);
+  grow("First sentence here. Second one too! Trailing part");
+  const full = await p;
+
+  assert.equal(chunks[0], "First sentence here.");
+  assert.ok(chunks.includes("Second one too!"), `chunks: ${JSON.stringify(chunks)}`);
+  assert.ok(chunks.some((c) => c.includes("Trailing part")), "tail flushed on idle");
+  assert.match(full, /Trailing part$/);
   rmSync(dir, { recursive: true, force: true });
 });
 

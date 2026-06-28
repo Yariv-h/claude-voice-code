@@ -197,7 +197,7 @@ export function handleConnection(ws: WebSocket, baseConfig: Config): void {
             console.error(`[stt] "${text}"`);
             send({ type: "transcript", role: "user", text, final: true });
           },
-          onAgentText: (text) => send({ type: "transcript", role: "agent", text }),
+          onAgentText: (text, partial) => send({ type: "transcript", role: "agent", text, partial }),
           onAudio: (pcm, rate) => {
             const at48 = rate === 48000 ? pcm : resampleLinear(pcm, rate, 48000);
             transport.sendAudio(int16ToBuffer(at48));

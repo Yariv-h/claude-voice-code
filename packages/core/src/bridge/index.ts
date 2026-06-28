@@ -6,7 +6,9 @@ import {
   awaitReply,
   captureBaseline,
   projectDirFor,
+  streamReply,
   type AwaitReplyOpts,
+  type StreamReplyOpts,
   type TurnBaseline,
 } from "./turnReader";
 
@@ -31,6 +33,8 @@ export interface ClaudeBridge {
   captureBaseline(): TurnBaseline;
   /** Wait for the reply to a turn started at `baseline`. */
   awaitReply(baseline: TurnBaseline, opts?: AwaitReplyOpts): Promise<string | null>;
+  /** Stream the reply (sentences as they land) for an injected message. */
+  streamReply(opts: StreamReplyOpts): Promise<string>;
   /** captureBaseline → inject → awaitReply (one full turn). */
   send(text: string, opts?: AwaitReplyOpts): Promise<string | null>;
 }
@@ -64,6 +68,7 @@ export function createBridge(config: Config, opts: CreateBridgeOpts = {}): Claud
     clear: () => inject(target, "/clear"),
     captureBaseline: () => captureBaseline(projectDir),
     awaitReply: (baseline, o) => awaitReply(projectDir, baseline, o),
+    streamReply: (o) => streamReply(projectDir, o),
     send: (text, o) => {
       const baseline = captureBaseline(projectDir);
       inject(target, text);

@@ -133,6 +133,21 @@ function replyAfterUserMessage(file: string, injected: string): string | null {
   return reply || null;
 }
 
+/** All assistant text after our injected user message, concatenated (in order). */
+function assistantTextAfter(file: string, injected: string): string {
+  const turns = parseTurns(file);
+  let lastUser = -1;
+  for (let i = 0; i < turns.length; i++) {
+    if (turns[i].role === "user" && norm(turns[i].text) === injected) lastUser = i;
+  }
+  if (lastUser < 0) return "";
+  const parts: string[] = [];
+  for (let i = lastUser + 1; i < turns.length; i++) {
+    if (turns[i].role === "assistant") parts.push(turns[i].text);
+  }
+  return parts.join("\n");
+}
+
 export interface TurnBaseline {
   activeFile: string | null;
   assistantCount: number;
@@ -223,4 +238,79 @@ export async function awaitReply(
     await delay(pollMs, opts.signal);
   }
   return lastText || null;
+}
+
+export interface StreamReplyOpts {
+  /** The injected user message — keys the reply to our session file. */
+  match: string;
+  signal?: AbortSignal;
+  pollMs?: number;
+  /** Turn is considered done after the reply text is unchanged this long. */
+  idleMs?: number;
+  deadlineMs?: number;
+  /** Newly-complete text (one or more whole sentences) since the last call. */
+  onText: (chunk: string, fullSoFar: string) => void;
+}
+
+/**
+ * Stream an assistant reply as it lands: each poll, emit any newly-complete
+ * sentences (ending in . ! ? or a newline) via onText, holding a trailing
+ * partial until it completes; flush the remainder once the reply has been idle
+ * for idleMs (turn done). Works whether Claude writes the transcript a sentence
+ * at a time or a whole message at once. Returns the full reply text.
+ */
+export async function streamReply(projectDir: string, opts: StreamReplyOpts): Promise<string> {
+  const pollMs = opts.pollMs ?? 200;
+  const idleMs = opts.idleMs ?? 1200;
+  const deadline = Date.now() + (opts.deadlineMs ?? 90_000);
+  const match = norm(opts.match);
+  let acc = "";
+  let prev = "";
+  let spoken = 0;
+  let lastChange = Date.now();
+  let saw = false;
+
+  const hasSpeech = (s: string) => /[\p{L}\p{N}]/u.test(s);
+  const flush = (final: boolean) => {
+    const tail = acc.slice(spoken);
+    if (!tail) return;
+    if (final) {
+      const t = tail.trim();
+      if (hasSpeech(t)) opts.onText(t, acc);
+      spoken = acc.length;
+      return;
+    }
+    let cut = -1;
+    for (let i = tail.length - 1; i >= 0; i--) {
+      const ch = tail[i];
+      if (ch === "." || ch === "!" || ch === "?" || ch === "\n") {
+        cut = i;
+        break;
+      }
+    }
+    if (cut >= 0) {
+      const ready = tail.slice(0, cut + 1).trim();
+      if (hasSpeech(ready)) opts.onText(ready, acc.slice(0, spoken + cut + 1));
+      spoken += cut + 1;
+    }
+  };
+
+  while (Date.now() < deadline) {
+    if (opts.signal?.aborted) break;
+    const file = fileWithUserMessage(projectDir, match);
+    if (file) acc = assistantTextAfter(file, match);
+    if (acc !== prev) {
+      prev = acc;
+      lastChange = Date.now();
+      if (acc) saw = true;
+    }
+    flush(false);
+    if (saw && Date.now() - lastChange >= idleMs) {
+      flush(true);
+      return acc;
+    }
+    await delay(pollMs, opts.signal);
+  }
+  if (!opts.signal?.aborted) flush(true);
+  return acc;
 }

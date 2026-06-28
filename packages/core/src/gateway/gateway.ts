@@ -1,13 +1,14 @@
-// The gateway wires STT → bridge → TTS through the turn-state machine. It owns
-// barge-in (AbortControllers for the in-flight reply and TTS) and emits state +
-// transcripts + audio to whatever front-end drives it (CLI or web server).
+// The gateway wires STT → bridge → TTS through the turn-state machine. It streams
+// the reply (speaking each sentence as it lands), owns barge-in (a per-turn
+// AbortController that stops the reader + TTS), and runs the spoken tool-confirm
+// flow (Guard mode).
 
+import { stripMarkdown } from "../audio/markdown";
 import type { ClaudeBridge } from "../bridge";
 import type { Config } from "../config";
+import { classifyYesNo, type ConfirmDecision } from "../confirm";
 import type { SttProvider } from "../stt";
 import type { TtsProvider } from "../tts";
-import { condenseForSpeech } from "../summarize";
-import { classifyYesNo, type ConfirmDecision } from "../confirm";
 import type { VoiceState } from "../types";
 import { reduce, type ActiveState, type GatewayEffect, type VoiceEvent } from "./turnState";
 
@@ -16,14 +17,14 @@ export interface GatewayDeps {
   tts: TtsProvider | null;
   bridge: ClaudeBridge;
   config: Config;
-  /** Prepended to each injected turn to set Claude's thinking level (e.g. "Think hard."). */
+  /** Prepended to each injected turn (thinking level / concise instruction). */
   thinkingPrefix?: string;
   /** State changes (idle/listening/thinking/speaking, and "off" after stop). */
   onState?(s: VoiceState): void;
   /** A finalized user utterance (for transcript UI). */
   onUserText?(text: string): void;
-  /** The agent's reply text (full, for transcript UI). */
-  onAgentText?(text: string): void;
+  /** Agent reply text; partial=true while it's still streaming. */
+  onAgentText?(text: string, partial?: boolean): void;
   /** A chunk of TTS audio to play/transmit. */
   onAudio?(pcm: Int16Array, sampleRate: number): void;
   /** Barge-in: drop any queued/playing audio immediately. */
@@ -45,17 +46,66 @@ export interface Gateway {
 export function createGateway(deps: GatewayDeps): Gateway {
   let st: ActiveState = "idle";
   let on = false;
-  let replyAbort: AbortController | null = null;
-  let ttsAbort: AbortController | null = null;
+  let turnAbort: AbortController | null = null;
   let confirmAnswer: ((text: string) => void) | null = null;
+
+  // ── TTS queue: synthesize queued reply chunks in order, streaming audio out.
+  // Each chunk carries its turn's signal so barge-in only cancels that turn. ──
+  const ttsQueue: { text: string; signal: AbortSignal }[] = [];
+  let draining = false;
+  let drainWaiters: (() => void)[] = [];
+
+  async function drainLoop(): Promise<void> {
+    draining = true;
+    while (ttsQueue.length) {
+      const item = ttsQueue.shift();
+      if (!item || item.signal.aborted) continue;
+      const speak = stripMarkdown(item.text);
+      if (!deps.tts || !speak) continue;
+      try {
+        await deps.tts.synthesize(
+          speak,
+          (c) => {
+            if (!item.signal.aborted) deps.onAudio?.(c.pcm, c.sampleRate);
+          },
+          item.signal,
+        );
+      } catch {
+        /* aborted/failed */
+      }
+    }
+    draining = false;
+    const waiters = drainWaiters;
+    drainWaiters = [];
+    for (const w of waiters) w();
+  }
+  function enqueueSpeak(text: string, signal: AbortSignal): void {
+    ttsQueue.push({ text, signal });
+    if (!draining) void drainLoop();
+  }
+  function clearQueue(): void {
+    ttsQueue.length = 0;
+  }
+  function waitDrain(signal: AbortSignal): Promise<void> {
+    if (!draining && ttsQueue.length === 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      if (signal.aborted) return resolve();
+      drainWaiters.push(resolve);
+      signal.addEventListener("abort", () => resolve(), { once: true });
+    });
+  }
+
+  function setState(s: ActiveState): void {
+    if (s === st) return;
+    st = s;
+    deps.onState?.(s);
+  }
 
   function dispatch(ev: VoiceEvent): void {
     if (!on) return;
-    const prev = st;
     const tr = reduce(st, ev);
-    st = tr.state;
+    setState(tr.state);
     for (const eff of tr.effects) applyEffect(eff);
-    if (st !== prev) deps.onState?.(st);
   }
 
   function applyEffect(eff: GatewayEffect): void {
@@ -63,64 +113,53 @@ export function createGateway(deps: GatewayDeps): Gateway {
       case "inject":
         void runTurn(eff.text);
         break;
-      case "say":
-        void runSay(eff.text);
-        break;
       case "cancelTts":
-        ttsAbort?.abort();
+        turnAbort?.abort();
+        clearQueue();
         deps.onAudioFlush?.();
         break;
       case "interruptAgent":
-        replyAbort?.abort();
+        turnAbort?.abort();
+        clearQueue();
+        deps.onAudioFlush?.();
         deps.bridge.interrupt();
         break;
+      case "say":
+        break; // speech is driven by the streaming reader, not this effect
     }
   }
 
   async function runTurn(text: string): Promise<void> {
     deps.onUserText?.(text); // show the raw words
     const injected = deps.thinkingPrefix ? `${deps.thinkingPrefix} ${text}` : text;
-    const baseline = deps.bridge.captureBaseline();
     deps.bridge.inject(injected);
-    replyAbort = new AbortController();
-    const signal = replyAbort.signal;
-    const reply = await deps.bridge.awaitReply(baseline, { signal, match: injected });
-    if (signal.aborted) return; // user barged in
-    dispatch({ type: "replyReady", text: reply ?? "" });
+    turnAbort = new AbortController();
+    const sig = turnAbort.signal;
+    let started = false;
+    let fullSoFar = "";
+    const full = await deps.bridge.streamReply({
+      match: injected,
+      signal: sig,
+      onText: (chunk, soFar) => {
+        if (sig.aborted) return;
+        fullSoFar = soFar;
+        if (!started) {
+          started = true;
+          setState("speaking"); // first sentence → start speaking
+        }
+        deps.onAgentText?.(soFar, true);
+        enqueueSpeak(chunk, sig);
+      },
+    });
+    if (sig.aborted) return;
+    const reply = (full || fullSoFar).trim();
+    if (reply) deps.onAgentText?.(reply, false);
+    await waitDrain(sig);
+    if (sig.aborted) return;
+    setState("idle");
   }
 
-  async function runSay(text: string): Promise<void> {
-    const display = text.trim();
-    if (display) deps.onAgentText?.(display);
-    const speak = condenseForSpeech(text, deps.config.reply);
-    if (!deps.tts || !speak) {
-      dispatch({ type: "ttsDone" });
-      return;
-    }
-    ttsAbort = new AbortController();
-    const signal = ttsAbort.signal;
-    const t0 = Date.now();
-    let first = false;
-    try {
-      await deps.tts.synthesize(
-        speak,
-        (c) => {
-          if (!first) {
-            first = true;
-            if (process.env.CVC_DEBUG_AUDIO) console.error(`[tts] first audio +${Date.now() - t0}ms (${speak.length} chars)`);
-          }
-          if (!signal.aborted) deps.onAudio?.(c.pcm, c.sampleRate);
-        },
-        signal,
-      );
-      if (process.env.CVC_DEBUG_AUDIO) console.error(`[tts] synth done +${Date.now() - t0}ms`);
-    } catch {
-      /* synthesis failed/aborted */
-    }
-    if (signal.aborted) return; // barge-in already moved the state + flushed
-    dispatch({ type: "ttsDone" });
-  }
-
+  // ── spoken tool-use confirmation (Guard mode) ──
   const CONFIRM_TIMEOUT_MS = 30_000;
   async function speakConfirm(text: string): Promise<void> {
     if (!deps.tts) return;
@@ -143,8 +182,8 @@ export function createGateway(deps: GatewayDeps): Gateway {
         resolve(d);
       };
       const timer = setTimeout(() => done("deny"), CONFIRM_TIMEOUT_MS); // fail-closed
-      confirmAnswer = (text) => {
-        const yn = classifyYesNo(text);
+      confirmAnswer = (answer) => {
+        const yn = classifyYesNo(answer);
         if (yn === "yes") done("allow");
         else if (yn === "no") done("deny");
         else void speakConfirm("Sorry — please say yes, or no.");
@@ -173,8 +212,8 @@ export function createGateway(deps: GatewayDeps): Gateway {
     },
     async stop() {
       on = false;
-      replyAbort?.abort();
-      ttsAbort?.abort();
+      turnAbort?.abort();
+      clearQueue();
       deps.onAudioFlush?.();
       await deps.stt.stop();
       deps.onState?.("off");
