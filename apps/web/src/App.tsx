@@ -232,6 +232,12 @@ export function App() {
             </div>
             <div style={{ fontSize: 13, color: c.dim, marginTop: 6 }}>{muted && connected ? "Tap the mic to unmute" : CAPTION[state]}</div>
             {notice && <div style={{ fontSize: 12, color: c.accent, marginTop: 6, fontFamily: mono }}>⏳ {notice}</div>}
+            {guard && (
+              <div style={{ fontSize: 11.5, color: "#e6a06a", marginTop: 8, fontFamily: mono, maxWidth: 440, lineHeight: 1.5 }}>
+                ⚠ Guard on — Claude runs with <b>--dangerously-skip-permissions</b>; dangerous tools (rm, git push, any
+                integration, …) require your spoken yes/no.
+              </div>
+            )}
           </div>
           <button
             onClick={onMic}
@@ -413,7 +419,10 @@ export function App() {
           />
         </DockGroup>
 
-        <DockGroup label="Guard">
+        <DockGroup
+          label="Guard"
+          title="Runs Claude with --dangerously-skip-permissions, but gates dangerous tools (rm, git push, any MCP/integration, sensitive writes) behind a spoken yes/no. Off = Claude's normal permission prompts (which appear in the tmux pane)."
+        >
           <Segmented
             options={[{ v: "on", label: "On" }, { v: "off", label: "Off" }]}
             value={guard ? "on" : "off"}
@@ -436,10 +445,13 @@ export function App() {
 
 type Colors = { accent: string; ink: string; dim: string; border: string };
 
-function DockGroup({ label, children }: { label: string; children: ReactNode }) {
+function DockGroup({ label, children, title }: { label: string; children: ReactNode; title?: string }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-      <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", opacity: 0.7 }}>{label}</span>
+    <div title={title} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+      <span style={{ fontFamily: mono, fontSize: 9, letterSpacing: ".18em", textTransform: "uppercase", opacity: 0.7 }}>
+        {label}
+        {title ? " ⓘ" : ""}
+      </span>
       {children}
     </div>
   );
