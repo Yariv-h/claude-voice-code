@@ -4,7 +4,7 @@ Talk to **Claude Code** by voice — two-way, with barge-in — from your **term
 or a **web UI**.
 
 <p align="center">
-  <img src="docs/screenshot.png" alt="cvc Voice Console" width="780">
+  <img src="docs/voice-console.png" alt="cvc Voice Console" width="780">
 </p>
 
 `cvc` bridges to a normal, already-authenticated `claude` running in a tmux
