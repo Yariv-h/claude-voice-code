@@ -77,29 +77,56 @@ function load(config: Config): SherpaOfflineTts {
   return cached;
 }
 
-/**
- * Split into small speakable chunks so the first words play within ~1s while the
- * rest synthesize. Sentences first; long sentences are sub-split on clause breaks
- * and capped (~160 chars) — one giant chunk would delay all audio until it's done.
- */
 const MAX_CHUNK = 160;
 const FIRST_CHUNK = 64; // keep the first chunk tiny so audio starts in ~0.6s
-function splitForStreaming(text: string): string[] {
-  // Split on clause boundaries (, ; : . ! ?), accumulate up to a cap — small for
-  // the first chunk (fast first audio), larger after (fewer synth calls).
+
+/** Greedily pack words into ≤cap pieces, breaking only at word boundaries. */
+function wordWrap(s: string, cap: number): string[] {
+  const out: string[] = [];
+  let buf = "";
+  for (const w of s.split(/\s+/)) {
+    if (buf && (buf + " " + w).length > cap) {
+      out.push(buf);
+      buf = w;
+    } else {
+      buf = buf ? `${buf} ${w}` : w;
+    }
+  }
+  if (buf) out.push(buf);
+  return out.length ? out : [s];
+}
+
+/**
+ * Split into small speakable chunks so the first words play within ~0.6s while
+ * the rest synthesize. Pack clauses (split on , ; : . ! ?) up to a cap — small
+ * for the first chunk (fast first audio), larger after (fewer synth calls). A
+ * single clause longer than the cap (e.g. a comma-less sentence) is hard-wrapped
+ * at word boundaries — otherwise it'd be one giant chunk that delays all audio.
+ */
+export function splitForStreaming(text: string): string[] {
   const clauses = text
     .split(/(?<=[,;:.!?])\s+/)
     .map((s) => s.trim())
     .filter(Boolean);
   const out: string[] = [];
   let buf = "";
+  const cap = () => (out.length === 0 ? FIRST_CHUNK : MAX_CHUNK);
   for (const cl of clauses) {
-    const cap = out.length === 0 ? FIRST_CHUNK : MAX_CHUNK;
-    if (buf && (buf + " " + cl).length > cap) {
+    if (!buf) {
+      buf = cl;
+    } else if ((buf + " " + cl).length <= cap()) {
+      buf = `${buf} ${cl}`;
+      continue; // still fits — nothing to flush
+    } else {
       out.push(buf);
       buf = cl;
-    } else {
-      buf = buf ? `${buf} ${cl}` : cl;
+    }
+    // buf may now exceed the cap (a single oversized clause): hard-wrap it,
+    // emitting all but the last piece and carrying the remainder forward.
+    if (buf.length > cap()) {
+      const pieces = wordWrap(buf, cap());
+      buf = pieces.pop() as string;
+      for (const p of pieces) out.push(p);
     }
   }
   if (buf) out.push(buf);
@@ -114,6 +141,15 @@ export class LocalTts implements TtsProvider {
   constructor(private config: Config) {
     this.speaker = config.voice.kokoroSpeaker;
     this.speed = config.voice.speed;
+  }
+
+  /** Load the model + one throwaway synth so the first real turn isn't cold. */
+  async prime(): Promise<void> {
+    try {
+      load(this.config).generate({ text: "Ready.", sid: this.speaker, speed: this.speed });
+    } catch {
+      /* warm-up is best-effort */
+    }
   }
 
   async synthesize(

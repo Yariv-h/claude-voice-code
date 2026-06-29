@@ -144,6 +144,19 @@ export class LocalStt implements SttProvider {
     this.closed = false;
   }
 
+  /** Decode ~1s of silence once so the first real utterance isn't cold (ONNX JIT). */
+  async prime(): Promise<void> {
+    if (!this.rec) return;
+    try {
+      const st = this.rec.createStream();
+      st.acceptWaveform({ sampleRate: RATE_STT, samples: new Float32Array(RATE_STT) });
+      this.rec.decode(st);
+      this.rec.getResult(st);
+    } catch {
+      /* warm-up is best-effort */
+    }
+  }
+
   onTranscript(cb: (t: Transcript) => void): void {
     this.transcriptCbs.push(cb);
   }

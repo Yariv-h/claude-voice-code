@@ -245,6 +245,14 @@ export function createGateway(deps: GatewayDeps): Gateway {
       on = true;
       st = "idle";
       deps.onState?.("idle");
+      // Warm local models off the critical path: the first inference pays a
+      // model-load + ONNX-JIT cost (~1-2s). Doing it now — during the user's
+      // natural pause before speaking — keeps it off the first real turn. Cloud
+      // providers omit prime(); both are best-effort and never throw.
+      void (async () => {
+        await deps.tts?.prime?.().catch(() => {});
+        await deps.stt.prime?.().catch(() => {});
+      })();
     },
     async stop() {
       on = false;

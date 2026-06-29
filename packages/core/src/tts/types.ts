@@ -20,5 +20,11 @@ export interface TtsProvider {
     onChunk: (chunk: TtsChunk) => void,
     signal?: AbortSignal,
   ): Promise<void>;
+  /**
+   * Optional warm-up: load the model and run one throwaway inference so the first
+   * real turn doesn't pay cold-start (model load + ONNX JIT). Cloud providers can
+   * omit it. Best-effort — must never throw.
+   */
+  prime?(): Promise<void>;
   close?(): void;
 }
