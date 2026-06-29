@@ -22,7 +22,7 @@
     // Default lives in ~/.cache/claude-voice-code/models (found from any dir).
     // "~" is expanded; a relative path resolves against the dir you run cvc from.
     "dir": "~/.cache/claude-voice-code/models",
-    "whisper": "sherpa-onnx-whisper-base.en", // STT model directory name
+    "whisper": "sherpa-onnx-whisper-small.en", // STT model directory name
     "vad": "silero_vad.onnx",                 // VAD model file name
     "kokoro": "kokoro-int8-en-v0_19",         // TTS model directory name
     "kokoroQuality": "int8"                   // "int8" (~103MB) | "fp32" (~320MB)
